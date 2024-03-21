@@ -23,14 +23,53 @@ Service ports mapped are:
     containerPort: {{ $value }}
     protocol: TCP
 {{- end }}
+{{- if semverCompare ">=1.24.0-0" .Capabilities.KubeVersion.Version }}
+  - name: quic
+    containerPort: {{ .Values.controller.containerPort.https }}
+    protocol: UDP
+{{- end }}
+{{- range .Values.controller.service.tcpPorts }}
+  - name: {{ .name }}-tcp
+    containerPort: {{ .targetPort }}
+    protocol: TCP
+{{- end }}
 {{- end }}
 {{- if eq .Values.controller.kind "DaemonSet" }}
+{{- $useHostPort := .Values.controller.daemonset.useHostPort -}}
 {{- $hostPorts := .Values.controller.daemonset.hostPorts -}}
+{{- $hostIP := .Values.controller.daemonset.hostIP -}}
 {{- range $key, $value := .Values.controller.containerPort }}
   - name: {{ $key }}
     containerPort: {{ $value }}
     protocol: TCP
+{{- if $useHostPort }}
     hostPort: {{ index $hostPorts $key | default $value }}
+{{- end }}
+{{- if $hostIP }}
+    hostIP: {{ $hostIP }}
+{{- end }}
+{{- end }}
+{{- if semverCompare ">=1.24.0-0" .Capabilities.KubeVersion.Version }}
+  - name: quic
+    containerPort: {{ .Values.controller.containerPort.https }}
+    protocol: UDP
+{{- if $useHostPort }}
+    hostPort: {{ .Values.controller.daemonset.hostPorts.https }}
+{{- end }}
+{{- if $hostIP }}
+    hostIP: {{ $hostIP }}
+{{- end }}
+{{- end }}
+{{- range .Values.controller.service.tcpPorts }}
+  - name: {{ .name }}-tcp
+    containerPort: {{ .port }}
+    protocol: TCP
+{{- if $useHostPort }}
+    hostPort: {{ .port }}
+{{- end }}
+{{- if $hostIP }}
+    hostIP: {{ $hostIP }}
+{{- end }}
 {{- end }}
 {{- end }}
 
