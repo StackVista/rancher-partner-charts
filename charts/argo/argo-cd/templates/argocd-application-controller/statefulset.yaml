@@ -1,3 +1,4 @@
+{{- if not .Values.controller.dynamicClusterDistribution | default false }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -77,6 +78,8 @@ spec:
           {{- end }}
           - name: ARGOCD_CONTROLLER_REPLICAS
             value: {{ .Values.controller.replicas | quote }}
+          - name: ARGOCD_APPLICATION_CONTROLLER_NAME
+            value: {{ template "argo-cd.controller.fullname" . }}
           - name: ARGOCD_RECONCILIATION_TIMEOUT
             valueFrom:
               configMapKeyRef:
@@ -330,7 +333,12 @@ spec:
         {{- toYaml . | nindent 6 }}
       {{- end }}
       - name: argocd-home
+        {{- if .Values.controller.emptyDir.sizeLimit }}
+        emptyDir:
+          sizeLimit: {{ .Values.controller.emptyDir.sizeLimit }}
+        {{- else }}
         emptyDir: {}
+        {{- end }}
       - name: argocd-repo-server-tls
         secret:
           secretName: argocd-repo-server-tls
@@ -350,3 +358,4 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       dnsPolicy: {{ .Values.controller.dnsPolicy }}
+{{- end }}
