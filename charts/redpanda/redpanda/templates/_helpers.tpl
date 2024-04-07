@@ -18,7 +18,7 @@ limitations under the License.
 Expand the name of the chart.
 */}}
 {{- define "redpanda.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- get ((include "redpanda.Name" (dict "a" (list .))) | fromJson) "r" }}
 {{- end -}}
 
 {{/*
@@ -26,42 +26,28 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 */}}
 {{- define "redpanda.fullname" -}}
-{{- if .Values.fullnameOverride -}}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s" .Release.Name | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
+{{- get ((include "redpanda.Fullname" (dict "a" (list .))) | fromJson) "r" }}
 {{- end -}}
 
 {{/*
 Create a default service name
 */}}
 {{- define "redpanda.servicename" -}}
-{{- if dig "service" "name" false .Values.AsMap -}}
-{{- .Values.service.name | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{ include "redpanda.fullname" . | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
+{{- get ((include "redpanda.ServiceName" (dict "a" (list .))) | fromJson) "r" }}
 {{- end -}}
 
 {{/*
 full helm labels + common labels
 */}}
 {{- define "full.labels" -}}
-{{ $required := dict
-"helm.sh/chart" ( include "redpanda.chart" . )
-"app.kubernetes.io/name" ( include "redpanda.name" . )
-"app.kubernetes.io/instance" ( .Release.Name  )
-"app.kubernetes.io/managed-by" ( .Release.Service )
-"app.kubernetes.io/component" ( include "redpanda.name" . ) }}
-{{- toYaml ( merge $required .Values.commonLabels ) }}
+{{- (get ((include "redpanda.FullLabels" (dict "a" (list .))) | fromJson) "r") | toYaml }}
 {{- end -}}
 
 {{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "redpanda.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- get ((include "redpanda.Chart" (dict "a" (list .))) | fromJson) "r" }}
 {{- end }}
 
 {{/*
@@ -75,36 +61,19 @@ Get the version of redpanda being used as an image
 Create the name of the service account to use
 */}}
 {{- define "redpanda.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "redpanda.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
+{{- get ((include "redpanda.ServiceAccountName" (dict "a" (list .))) | fromJson) "r" }}
 {{- end }}
 
 {{/*
 Use AppVersion if image.tag is not set
 */}}
 {{- define "redpanda.tag" -}}
-{{- $tag := default .Chart.AppVersion .Values.image.tag -}}
-{{- $matchString := "^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" -}}
-{{- $match := mustRegexMatch $matchString $tag -}}
-{{- if not $match -}}
-  {{/*
-  This error message is for end users. This can also occur if
-  AppVersion doesn't start with a 'v' in Chart.yaml.
-  */}}
-  {{ fail "image.tag must start with a 'v' and be valid semver" }}
-{{- end -}}
-{{- $tag -}}
+{{- get ((include "redpanda.Tag" (dict "a" (list .))) | fromJson) "r" }}
 {{- end -}}
 
 {{/* Generate internal fqdn */}}
 {{- define "redpanda.internal.domain" -}}
-{{- $service := include "redpanda.servicename" . -}}
-{{- $ns := .Release.Namespace -}}
-{{- $domain := .Values.clusterDomain | trimSuffix "." -}}
-{{- printf "%s.%s.svc.%s." $service $ns $domain -}}
+{{- get ((include "redpanda.InternalDomain" (dict "a" (list .))) | fromJson) "r" }}
 {{- end -}}
 
 {{/* ConfigMap variables */}}
@@ -168,27 +137,7 @@ Use AppVersion if image.tag is not set
 {{- end -}}
 
 {{- define "tls-enabled" -}}
-{{- $tlsenabled := .Values.tls.enabled -}}
-{{- if not $tlsenabled -}}
-  {{- range $listener := .Values.listeners -}}
-    {{- if and
-        (dig "tls" "enabled" false $listener)
-        (not (empty (dig "tls" "cert" "" $listener )))
-    -}}
-      {{- $tlsenabled = true -}}
-    {{- end -}}
-    {{- if not $tlsenabled -}}
-      {{- range $external := $listener.external -}}
-        {{- if and
-            (dig "tls" "enabled" false $external)
-            (not (empty (dig "tls" "cert" "" $external)))
-          -}}
-          {{- $tlsenabled = true -}}
-        {{- end -}}
-      {{- end -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
+{{- $tlsenabled := get ((include "redpanda.TLSEnabled" (dict "a" (list .))) | fromJson) "r" }}
 {{- toJson (dict "bool" $tlsenabled) -}}
 {{- end -}}
 
@@ -477,6 +426,12 @@ fsGroupChangePolicy: {{ dig "securityContext" "fsGroupChangePolicy" "OnRootMisma
 {{- define "container-security-context" -}}
 runAsUser: {{ dig "podSecurityContext" "runAsUser" .Values.statefulset.securityContext.runAsUser .Values.statefulset }}
 runAsGroup: {{ dig "podSecurityContext" "fsGroup" .Values.statefulset.securityContext.fsGroup .Values.statefulset }}
+{{- if hasKey .Values.statefulset.securityContext "allowPrivilegeEscalation" }}
+allowPrivilegeEscalation: {{ dig "podSecurityContext" "allowPrivilegeEscalation" .Values.statefulset.securityContext.allowPrivilegeEscalation .Values.statefulset }}
+{{- end -}}
+{{- if hasKey .Values.statefulset.securityContext "runAsNonRoot" }}
+runAsNonRoot: {{ dig "podSecurityContext" "runAsNonRoot" .Values.statefulset.securityContext.runAsNonRoot .Values.statefulset }}
+{{- end -}}
 {{- end -}}
 
 {{- define "admin-tls-curl-flags" -}}
@@ -857,37 +812,83 @@ REDPANDA_SASL_USERNAME REDPANDA_SASL_PASSWORD REDPANDA_SASL_MECHANISM
 
 {{/* check if client auth is enabled for any of the listeners */}}
 {{- define "client-auth-required" -}}
-  {{- with .Values.listeners -}}
-    {{- $requireClientAuth := or
-        .kafka.tls.requireClientAuth
-        .admin.tls.requireClientAuth
-        .schemaRegistry.tls.requireClientAuth
-        .rpc.tls.requireClientAuth
-        .http.tls.requireClientAuth
-    -}}
-    {{- toJson (dict "bool" $requireClientAuth) -}}
-  {{- end -}}
+{{- $requireClientAuth := get ((include "redpanda.ClientAuthRequired" (dict "a" (list .))) | fromJson) "r" }}
+{{- toJson (dict "bool" $requireClientAuth) -}}
 {{- end -}}
 
-{{- define "storage-tiered-credentials-secret-key" -}}
-{{- $oldCondtion := (and .Values.storage.tiered.credentialsSecretRef.name .Values.storage.tiered.credentialsSecretRef.key) -}}
-{{- $newCondtion := (and .Values.storage.tiered.credentialsSecretRef.secretKey.name .Values.storage.tiered.credentialsSecretRef.secretKey.key) -}}
-{{- $configurationKey := (dig "configurationKey" "" .Values.storage.tiered.credentialsSecretRef) -}}
-{{- if empty $configurationKey -}}
-  {{- $configurationKey = .Values.storage.tiered.credentialsSecretRef.secretKey.configurationKey -}}
+{{/* secret-ref-or-value
+        in: {Value: string?, SecretKey: string?, SecretName: string?}
+        out: corev1.Envvar | nil
+    secret-ref-or-value converts a set of values into a structure suitable for
+    use as an environment variable or nil.
+*/}}
+{{- define "secret-ref-or-value" -}}
+    {{- if and (empty .Value) (or (empty .SecretName) (empty .SecretKey)) -}}
+        {{- mustToJson nil -}}
+    {{- else -}}
+        {{- $out := (dict
+            "name" .Name
+            "value" .Value
+            "valueFrom" (dict
+                "secretKeyRef" (dict
+                    "name" .SecretName
+                    "key" .SecretKey
+                )
+            )
+        ) -}}
+        {{- if empty .Value -}}
+            {{- $_ := unset $out "value" -}}
+        {{- else -}}
+            {{- $_ := unset $out "valueFrom" -}}
+        {{- end -}}
+        {{- mustToJson $out -}}
+    {{- end -}}
 {{- end -}}
-{{- $key := (dig "key" "" .Values.storage.tiered.credentialsSecretRef) -}}
-{{- if empty $key -}}
-  {{- $key = .Values.storage.tiered.credentialsSecretRef.secretKey.key -}}
-{{- end -}}
-{{- $name := (dig "name" "" .Values.storage.tiered.credentialsSecretRef) -}}
-{{- if empty $name -}}
-  {{- $name = .Values.storage.tiered.credentialsSecretRef.secretKey.name -}}
-{{- end -}}
-{{- toJson (dict
-  "bool" (or $oldCondtion $newCondtion)
-  "configurationKey" $configurationKey
-  "key" $key
-  "name" $name
-) -}}
+
+{{- define "tiered-storage-env-vars" -}}
+    {{- $config := (include "storage-tiered-config" . | fromJson) -}}
+    [
+        {{- if and (include "is-licensed" . | fromJson).bool (dig "cloud_storage_enabled" false $config) -}}
+            {{include "secret-ref-or-value" (dict
+                "Name" "RPK_CLOUD_STORAGE_SECRET_KEY"
+                "Value" (dig "cloud_storage_secret_key" nil $config)
+                "SecretName" (dig "tiered" "credentialsSecretRef" "secretKey" "name" nil .Values.storage)
+                "SecretKey" (dig "tiered" "credentialsSecretRef" "secretKey" "key" nil .Values.storage)
+            )}}
+            ,
+            {{include "secret-ref-or-value" (dict
+                "Name" "RPK_CLOUD_STORAGE_ACCESS_KEY"
+                "Value" (dig "cloud_storage_access_key" nil $config)
+                "SecretName" (dig "tiered" "credentialsSecretRef" "accessKey" "name" nil .Values.storage)
+                "SecretKey" (dig "tiered" "credentialsSecretRef" "accessKey" "key" nil .Values.storage)
+            )}}
+
+            {{/* Because these keys can be set via secrets, they're special
+            cased above. Remove them so they don't get duplicated. */}}
+            {{- $_ := unset $config "cloud_storage_access_key" -}}
+            {{- $_ := unset $config "cloud_storage_secret_key" -}}
+
+            {{/* iterate over the sorted keys of $config for deterministic output */}}
+            {{- range $i, $key := ($config | keys | sortAlpha) -}}
+                {{- $value := (get $config $key) -}}
+
+                {{/* Special case for cache size */}}
+                {{- if eq $key "cloud_storage_cache_size" -}}
+                    {{- $value = (include "SI-to-bytes" $value | int64) -}}
+                {{- end -}}
+
+                ,
+
+                {{/* Only include values that are truthy OR that are booleans */}}
+                {{- if or (eq (typeOf $value) "bool") $value -}}
+                    {{include "secret-ref-or-value" (dict
+                        "Name" (printf "RPK_%s" ($key | upper))
+                        "Value" ($value | toJson)
+                    )}}
+                {{- else -}}
+                    null
+                {{- end -}}
+            {{- end -}}
+        {{- end -}}
+    ]
 {{- end -}}
