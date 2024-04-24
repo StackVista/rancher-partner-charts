@@ -306,7 +306,7 @@ data:
       {{- if (include "kafka.client.saslEnabled" .)}}
       read -r -a passwords <<<"$(tr ',;' ' ' <<<"${KAFKA_CLIENT_PASSWORDS:-}")"
       for ((i = 0; i < ${#passwords[@]}; i++)); do
-          replace_placeholder "password-placeholder-${i}" "${passwords[i]}"
+          replace_placeholder "password-placeholder-${i}\"" "${passwords[i]}\""
       done
       {{- end }}
       {{- if .Values.sasl.zookeeper.user }}
@@ -320,6 +320,18 @@ data:
     if [[ "${EXTERNAL_ACCESS_ENABLED:-false}" =~ ^(yes|true)$ ]]; then
       retry_while "test -f /shared/external-host.txt -o -f /shared/external-port.txt" || error "Timed out waiting for autodiscovery init-container"
     fi
+    {{- end }}
+
+    {{- if .Values.sasl.zookeeper.user }}
+    export KAFKA_CONFIG_FILE=/config/kafka_jaas.conf
+    cat << EOF > /config/kafka_jaas.conf
+    Client {
+      org.apache.kafka.common.security.plain.PlainLoginModule required
+      username="{{ .Values.sasl.zookeeper.user }}"
+      password="zookeeper-password-placeholder";
+    };
+    EOF
+    replace_placeholder "zookeeper-password-placeholder" "$KAFKA_ZOOKEEPER_PASSWORD"
     {{- end }}
 
     export KAFKA_CONFIG_FILE=/config/server.properties
