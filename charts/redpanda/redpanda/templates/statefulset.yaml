@@ -43,7 +43,7 @@ metadata:
 {{- end }}
 spec:
   selector:
-    matchLabels: {{ (include "statefulset-pod-labels" .) | nindent 6 }}
+    matchLabels: {{ (include "statefulset-pod-labels-selector" .) | nindent 6 }}
   serviceName: {{ template "redpanda.servicename" . }}
   replicas: {{ .Values.statefulset.replicas | int64 }}
   updateStrategy:
@@ -52,12 +52,7 @@ spec:
   template:
     metadata:
       labels: {{ (include "statefulset-pod-labels" .) | nindent 8 }}
-        redpanda.com/poddisruptionbudget: {{ template "redpanda.fullname" . }}
-      annotations:
-        config.redpanda.com/checksum: {{ include "statefulset-checksum-annotation" . }}
-{{- with $.Values.statefulset.annotations }}
-        {{- toYaml . | nindent 8 }}
-{{- end }}
+      annotations:{{ ( get ( (include "redpanda.StatefulSetPodAnnotations" (dict "a" (list . (include "statefulset-checksum-annotation" .) )) ) | fromJson) "r" ) | toYaml | nindent 8 }}
     spec:
       terminationGracePeriodSeconds: {{ .Values.statefulset.terminationGracePeriodSeconds }}
       securityContext: {{ include "pod-security-context" . | nindent 8 }}
@@ -120,10 +115,10 @@ spec:
             - name: datadir
               mountPath: /var/lib/redpanda/data
   {{- if get .Values.statefulset.initContainers.fsValidator "resources" }}
-          resources: {{- toYaml .Values.statefulset.fsValidator.tuning.resources | nindent 12 }}
+          resources: {{- toYaml .Values.statefulset.fsValidator.resources | nindent 12 }}
   {{- end }}
 {{- end }}
-{{- if and (include "is-licensed" . | fromJson).bool (include "storage-tiered-config" .|fromJson).cloud_storage_enabled }}
+{{- if (include "storage-tiered-config" .|fromJson).cloud_storage_enabled }}
         - name: set-tiered-storage-cache-dir-ownership
           image: {{ .Values.statefulset.initContainerImage.repository }}:{{ .Values.statefulset.initContainerImage.tag }}
           command: ["/bin/sh", "-c", 'mkdir -p {{ include "tieredStorage.cacheDirectory" . }}; chown {{ $uid }}:{{ $gid }} -R {{ include "tieredStorage.cacheDirectory" . }}']
@@ -163,20 +158,6 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: status.hostIP
-            {{- if (include "storage-tiered-credentials-secret-key" . | fromJson).bool }}
-            - name: CLOUD_STORAGE_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  key: {{ (include "storage-tiered-credentials-secret-key" . | fromJson).key }}
-                  name: {{ (include "storage-tiered-credentials-secret-key" . | fromJson).name }}
-            {{- end }}
-            {{- if and .Values.storage.tiered.credentialsSecretRef.accessKey.name .Values.storage.tiered.credentialsSecretRef.accessKey.key }}
-            - name: CLOUD_STORAGE_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  key: {{ .Values.storage.tiered.credentialsSecretRef.accessKey.key }}
-                  name: {{ .Values.storage.tiered.credentialsSecretRef.accessKey.name }}
-            {{- end }}
           securityContext: {{ include "container-security-context" . | nindent 12 }}
           volumeMounts: {{ include "common-mounts" . | nindent 12 }}
 {{- if dig "initContainers" "configurator" "extraVolumeMounts" false .Values.statefulset -}}
@@ -197,19 +178,7 @@ spec:
       containers:
         - name: {{ template "redpanda.name" . }}
           image: {{ .Values.image.repository }}:{{ template "redpanda.tag" . }}
-          env:
-            - name: SERVICE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: HOST_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP
+          env: {{ get ((include "redpanda.StatefulSetRedpandaEnv" (dict "a" (list .))) | fromJson) "r" | toYaml | nindent 12 }}
           # finish the lifecycle scripts with "true" to prevent them from terminating the pod prematurely
           lifecycle:
             postStart:
@@ -237,7 +206,7 @@ spec:
                 - -c
                 - |
                   set -e
-                  RESULT=$(curl --silent --fail -k {{ include "admin-tls-curl-flags" . }} "{{ include "admin-http-protocol" . }}://{{ include "admin-api-urls" . }}/v1/status/ready")
+                  RESULT=$(curl --silent --fail -k -m 5 {{ include "admin-tls-curl-flags" . }} "{{ include "admin-http-protocol" . }}://{{ include "admin-api-urls" . }}/v1/status/ready")
                   echo $RESULT
                   echo $RESULT | grep ready
             initialDelaySeconds: {{ .Values.statefulset.startupProbe.initialDelaySeconds }}
@@ -249,7 +218,7 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - curl --silent --fail -k {{ include "admin-tls-curl-flags" . }} "{{ include "admin-http-protocol" . }}://{{ include "admin-api-urls" . }}/v1/status/ready"
+                - curl --silent --fail -k -m 5 {{ include "admin-tls-curl-flags" . }} "{{ include "admin-http-protocol" . }}://{{ include "admin-api-urls" . }}/v1/status/ready"
             initialDelaySeconds: {{ .Values.statefulset.livenessProbe.initialDelaySeconds }}
             failureThreshold: {{ .Values.statefulset.livenessProbe.failureThreshold }}
             periodSeconds: {{ .Values.statefulset.livenessProbe.periodSeconds }}
@@ -266,8 +235,9 @@ spec:
                 - -c
                 - |
                   set -x
-                  rpk cluster health
-                  rpk cluster health | grep 'Healthy:.*true'
+                  RESULT=$(rpk cluster health)
+                  echo $RESULT
+                  echo $RESULT | grep 'Healthy:.*true'
             initialDelaySeconds: {{ .Values.statefulset.readinessProbe.initialDelaySeconds }}
             failureThreshold: {{ .Values.statefulset.readinessProbe.failureThreshold }}
             periodSeconds: {{ .Values.statefulset.readinessProbe.periodSeconds }}
@@ -283,7 +253,7 @@ spec:
             - name: {{ lower $name }}
               containerPort: {{ $listener.port }}
   {{- range $externalName, $external := $listener.external }}
-    {{- if $external.port }}
+  {{- if and $external.port (or $external.enabled (and $values.external.enabled (dig "enabled" true $external))) }}
             - name: {{ lower $name | trunc 6 }}-{{ lower $externalName | trunc 8 }}
               containerPort: {{ $external.port }}
     {{- end }}
@@ -302,7 +272,7 @@ spec:
               mountPath: /var/lifecycle
             - name: datadir
               mountPath: /var/lib/redpanda/data
-{{- if and (include "is-licensed" . | fromJson).bool (include "storage-tiered-config" .|fromJson).cloud_storage_enabled (ne (include "storage-tiered-mountType" .) "none") }}
+{{- if and (include "storage-tiered-config" .|fromJson).cloud_storage_enabled (ne (include "storage-tiered-mountType" .) "none") }}
             - name: {{ default "tiered-storage-dir" .Values.storage.persistentVolume.nameOverwrite }}
               mountPath: {{ include "tieredStorage.cacheDirectory" . }}
 {{- end }}
@@ -377,7 +347,7 @@ spec:
       {{- else }}
           emptyDir: {}
       {{- end }}
-      {{- if and (include "is-licensed" . | fromJson).bool (include "storage-tiered-config" .|fromJson).cloud_storage_enabled }}
+      {{- if (include "storage-tiered-config" .|fromJson).cloud_storage_enabled }}
         {{- $tieredType := include "storage-tiered-mountType" . }}
         {{- if and (ne $tieredType "none") (ne $tieredType "persistentVolume") }}
         - name: tiered-storage-dir
@@ -414,7 +384,7 @@ spec:
           topologyKey: {{ $v.topologyKey }}
           whenUnsatisfiable: {{ $v.whenUnsatisfiable }}
           labelSelector:
-            matchLabels: {{ include "statefulset-pod-labels" $ | nindent 14 }}
+            matchLabels: {{ include "statefulset-pod-labels-selector" $ | nindent 14 }}
     {{- end }}
 {{- end }}
 {{- with ( include "statefulset-nodeSelectors" . ) }}
@@ -429,7 +399,7 @@ spec:
 {{- with ( include "statefulset-tolerations" . ) }}
       tolerations: {{- . | nindent 8 }}
 {{- end }}
-{{- if or .Values.storage.persistentVolume.enabled (and (include "is-licensed" . | fromJson).bool (include "storage-tiered-config" .|fromJson).cloud_storage_enabled (eq (include "storage-tiered-mountType" .) "persistentVolume" )) }}
+{{- if or .Values.storage.persistentVolume.enabled (and (include "storage-tiered-config" .|fromJson).cloud_storage_enabled (eq (include "storage-tiered-mountType" .) "persistentVolume" )) }}
   volumeClaimTemplates:
 {{- if .Values.storage.persistentVolume.enabled }}
     - metadata:
@@ -460,7 +430,7 @@ spec:
           requests:
             storage: {{ .Values.storage.persistentVolume.size | quote }}
 {{- end }}
-{{- if and (include "is-licensed" . | fromJson).bool (include "storage-tiered-config" .|fromJson).cloud_storage_enabled (eq (include "storage-tiered-mountType" .) "persistentVolume") }}
+{{- if and (include "storage-tiered-config" .|fromJson).cloud_storage_enabled (eq (include "storage-tiered-mountType" .) "persistentVolume") }}
     - metadata:
         name: {{ default "tiered-storage-dir" .Values.storage.persistentVolume.nameOverwrite }}
         labels:
