@@ -12,9 +12,94 @@ Use the following links to reference issues, PRs, and commits prior to v2.6.0.
 The changelog until v1.5.7 was auto-generated based on git commits.
 Those entries include a reference to the git commit to be able to get more details.
 
+## 5.1.13
+
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.27.1`
+
+## 5.1.12
+
+Update `git` to version `5.2.2`
+
+## 5.1.11
+
+Update `kubernetes` to version `4214.vf10083a_42e70`
+
+## 5.1.10
+
+Update `kubernetes` to version `4211.v08850dd0dfa_3`
+
+## 5.1.9
+
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.26.2`
+
+## 5.1.8
+
+Update `kubernetes` to version `4209.vc646b_71e5269`
+
+## 5.1.7
+
+Update `kubernetes` to version `4208.v4017b_a_27a_d67`
+
+## 5.1.6
+
+Update `jenkins/jenkins` to version `2.440.3-jdk17`
+
+## 5.1.5
+
+Fix Prometheus controller name.
+
+## 5.1.4
+
+Update `docker.io/bats/bats` to version `1.11.0`
+
+## 5.1.3
+
+Update `jenkins/jenkins` to version `2.440.2-jdk17`
+
+## 5.1.2
+
+Update `kubernetes` to version `4203.v1dd44f5b_1cf9`
+
+## 5.1.1
+
+Update `kubernetes` to version `4199.va_1647c280eb_2`
+
+## 5.1.0
+
+Add `agent.restrictedPssSecurityContext` to automatically inject in the jnlp container a securityContext that is suitable for the use of the restricted Pod Security Standard
+
+## 5.0.20
+
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.26.1`
+
+## 5.0.19
+
+Introduced helm-docs to automatically generate `values.yaml` documentation.
+
+## 5.0.18
+
+Update `kubernetes` to version `4193.vded98e56cc25`
+
+## 5.0.17
+
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.26.0`
+
+## 5.0.16
+
+Enable support for deleting plugin configuration files at startup.
+
+## 5.0.15
+
+Fixed changelog entries for previous version bumps
+
+
+## 5.0.14
+
+Update `jenkins/jenkins` to version `2.440.1-jdk17`
+
 ## 5.0.13
 
-Update `docker.io/kiwigrid/k8s-sidecar` to version `docker.io/kiwigrid/k8s-sidecar`
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.25.4`
 
 ## 5.0.12
 
@@ -27,7 +112,7 @@ Fix controller.sidecars.additionalSidecarContainers renaming and add tests
 
 ## 5.0.10
 
-Update `jenkins/inbound-agent` to version `jenkins/inbound-agent`
+Update `jenkins/inbound-agent` to version `3206.vb_15dcf73f6a_9-3`
 
 ## 5.0.9
 
