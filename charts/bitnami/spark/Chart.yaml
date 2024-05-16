@@ -6,10 +6,10 @@ annotations:
   category: Infrastructure
   images: |
     - name: spark
-      image: docker.io/bitnami/spark:3.5.0-debian-11-r22
+      image: docker.io/bitnami/spark:3.5.1-debian-12-r6
   licenses: Apache-2.0
 apiVersion: v2
-appVersion: 3.5.0
+appVersion: 3.5.1
 dependencies:
 - name: common
   repository: file://./charts/common
@@ -25,9 +25,9 @@ keywords:
 - apache
 - spark
 maintainers:
-- name: VMware, Inc.
+- name: Broadcom, Inc. All Rights Reserved.
   url: https://github.com/bitnami/charts
 name: spark
 sources:
 - https://github.com/bitnami/charts/tree/main/bitnami/spark
-version: 8.6.0
+version: 9.0.2
