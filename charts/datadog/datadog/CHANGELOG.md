@@ -1,5 +1,92 @@
 # Datadog changelog
 
+## 3.65.0
+
+* Default `datadog.securityAgent.runtime.useSecruntimeTrack` to `true`, sending CWS events directly to the new secruntime track (and to the new agent events explorer).
+
+## 3.64.1
+
+* Add `datadog.securityAgent.runtime.useSecruntimeTrack` config to start sending CWS events directly to the new secruntime track (and to the new agent events explorer).
+
+## 3.64.0
+
+* Add `datadog.originDetectionUnified.enabled` setting to enable unified origin detection for container tagging. Disabled by default
+
+## 3.63.0
+
+* Set kubelet core check to be enabled by default
+
+## 3.62.1
+
+* Update `fips.image.tag` to `1.1.2`
+
+## 3.62.0
+
+* Add `datadog.asm` section to configure various features of the ASM Security Product. Disabled by default
+
+## 3.61.0
+
+* Add `datadog.kubelet.core_check` option to configure whether the kubelet core check should be used
+  Note: this requires agent/cluster agent version 7.53.0+
+
+## 3.60.0
+
+* Set default `Agent` and `Cluster-Agent` version to `7.53.0`
+
+## 3.59.7
+
+* Add configuration option to specify clusterAgent.admissionController.containerRegistry, which defaults to registry
+* No longer set `DD_ADMISSION_CONTROLLER_AGENT_SIDECAR_CONTAINER_REGISTRY` to registry as a fallback,
+  that option is implicit from us now setting the higher level `clusterAgent.admissionController.containerRegistry`.
+
+## 3.59.6
+
+* Add configuration option datadog.apm.instrumentation.skipKPITelemetry.
+
+## 3.59.5
+
+* Set default `Agent` and `Cluster-Agent` version to `7.52.1`.
+
+## 3.59.4
+
+* Add language detection enable option for `APM` instrumentation.
+
+## 3.59.3
+
+* Add `contimage-intake.datadoghq.com` & `contlcycle-intake.datadoghq.com` endpoints to the `Agent` cilium network policy.
+
+## 3.59.2
+
+* Disable language detection reporting by default in Cluster Agent with Agent 7.52+.
+
+## 3.59.1
+
+* Add support for configuring Agent sidecar injection using Admission Controller.
+
+## 3.59.0
+
+* Set default `Agent` and `Cluster-Agent` version to `7.52.0`.
+
+## 3.58.1
+
+* Fix typo in PodSecurityPolicy warning note.
+
+## 3.58.0
+
+* Change configuration options for APM Instrumentation. Starting from Agent and Cluster-Agent version `7.51.0` APM Instrumentation needs to be configured using the following configuration options:
+* `datadog.apm.instrumentation.enabled` - set to `true` to enable automatic instrumentation.
+* `datadog.apm.instrumentation.enabledNamespaces` - optional; list of namespaces to enable automatic instrumentation in. If not provided, every namespace in the cluster will be instrumented.
+* `datadog.apm.instrumentation.disabledNamespaces` - optional; list of namespaces to disable automatic instrumentation in.
+
+
+## 3.57.3
+
+* Exclude agent, cluster agent and agent clusterchecks pods from injection from the admission controller.
+
+## 3.57.2
+
+* Add `networkpolicies` default permission for the cluster agent.
+
 ## 3.57.1
 
 * Allow configuring CWS security profile based auto suppression feature and enable it by default.

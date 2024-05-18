@@ -1,19 +1,16 @@
 annotations:
-  artifacthub.io/changes: "- \"fix: \U0001F41B missing quote on experimental plugin
-    args\"\n- \"fix: update traefik v3 serverstransporttcps CRD\"\n- \"feat: set runtimeClassName
-    on pod spec\"\n- \"feat: create v1 Gateway and GatewayClass Version for Traefik
-    v3\"\n- \"feat: allow exposure of ports on internal service only\"\n- \"doc: fix
-    invalid suggestion on TLSOption (#996)\"\n- \"chore: \U0001F527 update maintainers\"\n-
-    \"chore: \U0001F527 promote jnoordsij to Traefik Helm Chart maintainer\"\n- \"chore(release):
-    publish v26.1.0\"\n- \"chore(deps): update traefik docker tag to v2.11.0\"\n-
-    \"chore(deps): update traefik docker tag to v2.10.7\"\n- \"chore(crds): update
-    definitions for traefik v2.11\"\n"
+  artifacthub.io/changes: "- \"style: \U0001F3A8 consistent capitalization on `--entryPoints`
+    CLI flag\"\n- \"fix: \U0001F41B only expose http3 port on service when TCP variant
+    is exposed\"\n- \"fix: \U0001F41B logs filters on status codes\"\n- \"feat: ✨
+    add support of `experimental-v3.0` unstable version\"\n- \"feat: ability to override
+    liveness and readiness probe paths\"\n- \"feat(ports): add transport options\"\n-
+    \"chore(release): publish v28.0.0\"\n"
   catalog.cattle.io/certified: partner
   catalog.cattle.io/display-name: Traefik Proxy
-  catalog.cattle.io/kube-version: '>=1.16.0-0'
+  catalog.cattle.io/kube-version: '>=1.22.0-0'
   catalog.cattle.io/release-name: traefik
 apiVersion: v2
-appVersion: v2.11.0
+appVersion: v3.0.0
 description: A Traefik based Kubernetes ingress controller
 home: https://traefik.io/
 icon: https://raw.githubusercontent.com/traefik/traefik/v2.3/docs/content/assets/img/traefik.logo.png
@@ -21,7 +18,7 @@ keywords:
 - traefik
 - ingress
 - networking
-kubeVersion: '>=1.16.0-0'
+kubeVersion: '>=1.22.0-0'
 maintainers:
 - email: michel.loiseleur@traefik.io
   name: mloiseleur
@@ -35,4 +32,4 @@ sources:
 - https://github.com/traefik/traefik
 - https://github.com/traefik/traefik-helm-chart
 type: application
-version: 26.1.0
+version: 28.0.0
