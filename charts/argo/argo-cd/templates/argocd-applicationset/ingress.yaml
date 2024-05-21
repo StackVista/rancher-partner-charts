@@ -1,9 +1,9 @@
-{{- if and .Values.applicationSet.enabled .Values.applicationSet.ingress.enabled -}}
+{{- if .Values.applicationSet.ingress.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "argo-cd.applicationSet.fullname" . }}
-  namespace: {{ .Release.Namespace | quote }}
+  namespace: {{ include  "argo-cd.namespace" . }}
   labels:
     {{- include "argo-cd.labels" (dict "context" . "component" .Values.applicationSet.name "name" .Values.applicationSet.name) | nindent 4 }}
     {{- with .Values.applicationSet.ingress.labels }}
@@ -24,7 +24,7 @@ spec:
       http:
         paths:
           {{- with .Values.applicationSet.ingress.extraPaths }}
-            {{- toYaml . | nindent 10 }}
+            {{- tpl (toYaml .) $ | nindent 10 }}
           {{- end }}
           - path: {{ .Values.applicationSet.ingress.path }}
             pathType: {{ .Values.applicationSet.ingress.pathType }}
@@ -46,7 +46,7 @@ spec:
                   number: {{ $.Values.applicationSet.service.port }}
     {{- end }}
     {{- with .Values.applicationSet.ingress.extraRules }}
-      {{- toYaml . | nindent 4 }}
+      {{- tpl (toYaml .) $ | nindent 4 }}
     {{- end }}
   {{- if or .Values.applicationSet.ingress.tls .Values.applicationSet.ingress.extraTls }}
   tls:
