@@ -131,22 +131,6 @@ bootstrap.yaml: |
   audit_enabled: false
   {{- end }}
 {{- end }}
-{{- if and (include "is-licensed" . | fromJson).bool (include "storage-tiered-config" .|fromJson).cloud_storage_enabled }}
-  {{- $tieredStorageConfig := (include "storage-tiered-config" .|fromJson) }}
-  {{- $tieredStorageConfig = unset $tieredStorageConfig "cloud_storage_cache_directory" }}
-  {{- if not (include "redpanda-atleast-22-3-0" . | fromJson).bool }}
-    {{- $tieredStorageConfig = unset $tieredStorageConfig "cloud_storage_credentials_source"}}
-  {{- end }}
-  {{- range $key, $element := $tieredStorageConfig}}
-    {{- if or (eq (typeOf $element) "bool") $element }}
-      {{- if eq $key "cloud_storage_cache_size" }}
-        {{- dict $key (include "SI-to-bytes" $element) | toYaml | nindent 2 -}}
-      {{- else }}
-        {{- dict $key $element | toYaml | nindent 2 -}}
-      {{- end }}
-    {{- end }}
-  {{- end }}
-{{- end }}
 
 redpanda.yaml: |
   config_file: /etc/redpanda/redpanda.yaml
@@ -384,7 +368,7 @@ redpanda.yaml: |
 {{- with $root.tempConfigMapServerList }}
     seed_servers: {{ toYaml . | nindent 6 }}
 {{- end }}
-{{- if and (include "is-licensed" . | fromJson).bool (include "storage-tiered-config" .|fromJson).cloud_storage_enabled }}
+{{- if (include "storage-tiered-config" .|fromJson).cloud_storage_enabled }}
   {{- $tieredStorageConfig := (include "storage-tiered-config" .|fromJson) }}
   {{- if not (include "redpanda-atleast-22-3-0" . | fromJson).bool }}
     {{- $tieredStorageConfig = unset $tieredStorageConfig "cloud_storage_credentials_source" }}
@@ -392,7 +376,11 @@ redpanda.yaml: |
   {{- range $key, $element := $tieredStorageConfig }}
     {{- if or (eq (typeOf $element) "bool") $element }}
       {{- if eq $key "cloud_storage_cache_size" }}
-        {{- dict $key (include "SI-to-bytes" $element) | toYaml | nindent 2 -}}
+        {{- if typeIs "string" $element -}}
+          {{- dict $key ((get (fromJson (include "redpanda.SIToBytes" (dict "a" (list $element)) )) "r") | int64 | toString) | toYaml | nindent 2 -}}
+        {{- else }}
+          {{- dict $key ($element | int64 | toString )| toYaml | nindent 2 -}}
+        {{- end }}
       {{- else }}
         {{- dict $key $element | toYaml | nindent 2 -}}
       {{- end }}
@@ -611,15 +599,7 @@ rpk:
   overprovisioned: {{ dig "cpu" "overprovisioned" false .Values.resources }}
   enable_memory_locking: {{ dig "memory" "enable_memory_locking" false .Values.resources }}
   additional_start_flags:
-    - "--smp={{ include "redpanda-smp" . }}"
-    - "--memory={{ template "redpanda-memory" . }}M"
-    {{- if not .Values.config.node.developer_mode }}
-    - "--reserve-memory={{ template "redpanda-reserve-memory" . }}M"
-    {{- end }}
-    - "--default-log-level={{ .Values.logging.logLevel }}"
-  {{- with .Values.statefulset.additionalRedpandaCmdFlags -}}
-  {{- toYaml . | nindent 4 }}
-  {{- end }}
+  {{- get ((include "redpanda.RedpandaAdditionalStartFlags" (dict "a" (list . (include "redpanda-smp" .) ))) | fromJson) "r" | toYaml | nindent 4 }}
 
   {{- with dig "config" "rpk" dict .Values.AsMap }}
   # config.rpk entries
@@ -679,7 +659,7 @@ rpk:
 {{- define "rpk-config-external" -}}
   {{- $brokers := list -}}
   {{- $admin := list -}}
-  {{- $profile := keys .Values.listeners.kafka.external | first -}}
+  {{- $profile := keys .Values.listeners.kafka.external | sortAlpha | first -}}
   {{- $kafkaListener := get .Values.listeners.kafka.external $profile -}}
   {{- $adminListener := dict -}}
   {{- if .Values.listeners.admin.external -}}
