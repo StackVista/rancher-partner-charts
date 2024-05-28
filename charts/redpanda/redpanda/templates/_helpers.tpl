@@ -18,7 +18,7 @@ limitations under the License.
 Expand the name of the chart.
 */}}
 {{- define "redpanda.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- get ((include "redpanda.Name" (dict "a" (list .))) | fromJson) "r" }}
 {{- end -}}
 
 {{/*
@@ -26,42 +26,28 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 */}}
 {{- define "redpanda.fullname" -}}
-{{- if .Values.fullnameOverride -}}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s" .Release.Name | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
+{{- get ((include "redpanda.Fullname" (dict "a" (list .))) | fromJson) "r" }}
 {{- end -}}
 
 {{/*
 Create a default service name
 */}}
 {{- define "redpanda.servicename" -}}
-{{- if dig "service" "name" false .Values.AsMap -}}
-{{- .Values.service.name | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{ include "redpanda.fullname" . | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
+{{- get ((include "redpanda.ServiceName" (dict "a" (list .))) | fromJson) "r" }}
 {{- end -}}
 
 {{/*
 full helm labels + common labels
 */}}
 {{- define "full.labels" -}}
-{{ $required := dict
-"helm.sh/chart" ( include "redpanda.chart" . )
-"app.kubernetes.io/name" ( include "redpanda.name" . )
-"app.kubernetes.io/instance" ( .Release.Name  )
-"app.kubernetes.io/managed-by" ( .Release.Service )
-"app.kubernetes.io/component" ( include "redpanda.name" . ) }}
-{{- toYaml ( merge $required .Values.commonLabels ) }}
+{{- (get ((include "redpanda.FullLabels" (dict "a" (list .))) | fromJson) "r") | toYaml }}
 {{- end -}}
 
 {{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "redpanda.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- get ((include "redpanda.Chart" (dict "a" (list .))) | fromJson) "r" }}
 {{- end }}
 
 {{/*
@@ -75,36 +61,19 @@ Get the version of redpanda being used as an image
 Create the name of the service account to use
 */}}
 {{- define "redpanda.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "redpanda.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
+{{- get ((include "redpanda.ServiceAccountName" (dict "a" (list .))) | fromJson) "r" }}
 {{- end }}
 
 {{/*
 Use AppVersion if image.tag is not set
 */}}
 {{- define "redpanda.tag" -}}
-{{- $tag := default .Chart.AppVersion .Values.image.tag -}}
-{{- $matchString := "^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" -}}
-{{- $match := mustRegexMatch $matchString $tag -}}
-{{- if not $match -}}
-  {{/*
-  This error message is for end users. This can also occur if
-  AppVersion doesn't start with a 'v' in Chart.yaml.
-  */}}
-  {{ fail "image.tag must start with a 'v' and be valid semver" }}
-{{- end -}}
-{{- $tag -}}
+{{- get ((include "redpanda.Tag" (dict "a" (list .))) | fromJson) "r" }}
 {{- end -}}
 
 {{/* Generate internal fqdn */}}
 {{- define "redpanda.internal.domain" -}}
-{{- $service := include "redpanda.servicename" . -}}
-{{- $ns := .Release.Namespace -}}
-{{- $domain := .Values.clusterDomain | trimSuffix "." -}}
-{{- printf "%s.%s.svc.%s." $service $ns $domain -}}
+{{- get ((include "redpanda.InternalDomain" (dict "a" (list .))) | fromJson) "r" }}
 {{- end -}}
 
 {{/* ConfigMap variables */}}
@@ -168,105 +137,12 @@ Use AppVersion if image.tag is not set
 {{- end -}}
 
 {{- define "tls-enabled" -}}
-{{- $tlsenabled := .Values.tls.enabled -}}
-{{- if not $tlsenabled -}}
-  {{- range $listener := .Values.listeners -}}
-    {{- if and
-        (dig "tls" "enabled" false $listener)
-        (not (empty (dig "tls" "cert" "" $listener )))
-    -}}
-      {{- $tlsenabled = true -}}
-    {{- end -}}
-    {{- if not $tlsenabled -}}
-      {{- range $external := $listener.external -}}
-        {{- if and
-            (dig "tls" "enabled" false $external)
-            (not (empty (dig "tls" "cert" "" $external)))
-          -}}
-          {{- $tlsenabled = true -}}
-        {{- end -}}
-      {{- end -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
+{{- $tlsenabled := get ((include "redpanda.TLSEnabled" (dict "a" (list .))) | fromJson) "r" }}
 {{- toJson (dict "bool" $tlsenabled) -}}
 {{- end -}}
 
 {{- define "sasl-enabled" -}}
 {{- toJson (dict "bool" (dig "enabled" false .Values.auth.sasl)) -}}
-{{- end -}}
-
-{{- define "SI-to-bytes" -}}
-  {{/*
-  This template converts the incoming SI value to whole number bytes.
-  Input can be: b | B | k | K | m | M | g | G | Ki | Mi | Gi
-  Or number without suffix
-  */}}
-  {{- $si := . -}}
-  {{- if not (typeIs "string" . ) -}}
-    {{- $si = int64 $si | toString -}}
-  {{- end -}}
-  {{- $bytes := 0 -}}
-  {{- if or (hasSuffix "B" $si) (hasSuffix "b" $si) -}}
-    {{- $bytes = $si | trimSuffix "B" | trimSuffix "b" | float64 | floor -}}
-  {{- else if or (hasSuffix "K" $si) (hasSuffix "k" $si) -}}
-    {{- $raw := $si | trimSuffix "K" | trimSuffix "k" | float64 -}}
-    {{- $bytes = mulf $raw (mul 1000) | floor -}}
-  {{- else if or (hasSuffix "M" $si) (hasSuffix "m" $si) -}}
-    {{- $raw := $si | trimSuffix "M" | trimSuffix "m" | float64 -}}
-    {{- $bytes = mulf $raw (mul 1000 1000) | floor -}}
-  {{- else if or (hasSuffix "G" $si) (hasSuffix "g" $si) -}}
-    {{- $raw := $si | trimSuffix "G" | trimSuffix "g" | float64 -}}
-    {{- $bytes = mulf $raw (mul 1000 1000 1000) | floor -}}
-  {{- else if hasSuffix "Ki" $si -}}
-    {{- $raw := $si | trimSuffix "Ki" | float64 -}}
-    {{- $bytes = mulf $raw (mul 1024) | floor -}}
-  {{- else if hasSuffix "Mi" $si -}}
-    {{- $raw := $si | trimSuffix "Mi" | float64 -}}
-    {{- $bytes = mulf $raw (mul 1024 1024) | floor -}}
-  {{- else if hasSuffix "Gi" $si -}}
-    {{- $raw := $si | trimSuffix "Gi" | float64 -}}
-    {{- $bytes = mulf $raw (mul 1024 1024 1024) | floor -}}
-  {{- else if (mustRegexMatch "^[0-9]+$" $si) -}}
-    {{- $bytes = $si -}}
-  {{- else -}}
-    {{- printf "\n%s is invalid SI quantity\nSuffixes can be: b | B | k | K | m | M | g | G | Ki | Mi | Gi or without any Suffixes" $si | fail -}}
-  {{- end -}}
-  {{- $bytes | int64 -}}
-{{- end -}}
-
-{{/* Resource variables */}}
-{{- define "redpanda-memoryToMi" -}}
-  {{/*
-  This template converts the incoming memory value to whole number mebibytes.
-  */}}
-  {{- div (include "SI-to-bytes" .) (mul 1024 1024) -}}
-{{- end -}}
-
-{{- define "container-memory" -}}
-  {{- $result := "" -}}
-  {{- if (hasKey .Values.resources.memory.container "min") -}}
-    {{- $result = .Values.resources.memory.container.min | include "redpanda-memoryToMi" -}}
-  {{- else -}}
-    {{- $result = .Values.resources.memory.container.max | include "redpanda-memoryToMi" -}}
-  {{- end -}}
-  {{- if eq $result "" -}}
-    {{- "unable to get memory value from container" | fail -}}
-  {{- end -}}
-  {{- $result -}}
-{{- end -}}
-
-{{- define "external-nodeport-enabled" -}}
-{{- $values := .Values -}}
-{{- $enabled := and .Values.external.enabled (eq .Values.external.type "NodePort") -}}
-{{- range $listener := .Values.listeners -}}
-  {{- range $external := $listener.external -}}
-    {{- if and (dig "enabled" false $external) (eq (dig "type" $values.external.type $external) "NodePort") -}}
-      {{- $enabled = true -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- toJson (dict "bool" $enabled) -}}
 {{- end -}}
 
 {{- define "external-loadbalancer-enabled" -}}
@@ -280,63 +156,6 @@ Use AppVersion if image.tag is not set
   {{- end -}}
 {{- end -}}
 {{- toJson (dict "bool" $enabled) -}}
-{{- end -}}
-
-{{- define "redpanda-reserve-memory" -}}
-  {{/*
-  Determines the value of --reserve-memory flag (in mebibytes with M suffix, per Seastar).
-  This template looks at all locations where memory could be set.
-  These locations, in order of priority, are:
-  - .Values.resources.memory.redpanda.reserveMemory (commented out by default, users could uncomment)
-  - .Values.resources.memory.container.min (commented out by default, users could uncomment and
-    change to something lower than .Values.resources.memory.container.max)
-  - .Values.resources.memory.container.max (set by default)
-  */}}
-  {{- $result := 0 -}}
-  {{- if (hasKey .Values.resources.memory "redpanda") -}}
-    {{- $result = .Values.resources.memory.redpanda.reserveMemory | include "redpanda-memoryToMi" | int64 -}}
-  {{- else if (hasKey .Values.resources.memory.container "min") -}}
-    {{- $result = add (mulf (include "container-memory" .) 0.002) 200 -}}
-    {{- if gt $result 1000 -}}
-      {{- $result = 1000 -}}
-    {{- end -}}
-  {{- else -}}
-    {{- $result = add (mulf (include "container-memory" .) 0.002) 200 -}}
-    {{- if gt $result 1000 -}}
-      {{- $result = 1000 -}}
-    {{- end -}}
-  {{- end -}}
-  {{- $result -}}
-{{- end -}}
-
-{{- define "redpanda-memory" -}}
-  {{/*
-  Determines the value of --memory flag (in mebibytes with M suffix, per Seastar).
-  This template looks at all locations where memory could be set.
-  These locations, in order of priority, are:
-  - .Values.resources.memory.redpanda.memory (commented out by default, users could uncomment)
-  - .Values.resources.memory.container.min (commented out by default, users could uncomment and
-    change to something lower than .Values.resources.memory.container.max)
-  - .Values.resources.memory.container.max (set by default)
-  */}}
-  {{- $result := 0 -}}
-  {{- if (hasKey .Values.resources.memory "redpanda") -}}
-    {{- $result = .Values.resources.memory.redpanda.memory | include "redpanda-memoryToMi" | int64 -}}
-  {{- else -}}
-    {{- $result = mulf (include "container-memory" .) 0.8 | int64 -}}
-  {{- end -}}
-  {{- if eq $result 0 -}}
-    {{- "unable to get memory value redpanda-memory" | fail -}}
-  {{- end -}}
-  {{- if lt $result 256 -}}
-    {{- printf "\n%d is below the minimum value for Redpanda" $result | fail -}}
-  {{- end -}}
-  {{- if not .Values.config.node.developer_mode }}
-  {{- if gt (add $result (include "redpanda-reserve-memory" .)) (include "container-memory" . | int64) -}}
-    {{- printf "\nNot enough container memory for Redpanda memory values\nredpanda: %d, reserve: %d, container: %d" $result (include "redpanda-reserve-memory" . | int64) (include "container-memory" . | int64) | fail -}}
-  {{- end -}}
-  {{- end -}}
-  {{- $result -}}
 {{- end -}}
 
 {{/*
@@ -387,7 +206,11 @@ than 1 core.
 {{- define "storage-min-free-bytes" -}}
 {{- $fiveGiB := 5368709120 -}}
 {{- if dig "enabled" false .Values.storage.persistentVolume -}}
-  {{- min $fiveGiB (mulf (include "SI-to-bytes" .Values.storage.persistentVolume.size) 0.05 | int64) -}}
+  {{- if typeIs "string" .Values.storage.persistentVolume.size -}}
+    {{- min $fiveGiB (mulf (get ((include "redpanda.SIToBytes" (dict "a" (list .Values.storage.persistentVolume.size))) | fromJson) "r" ) 0.05 | int64) -}}
+  {{- else -}}
+    {{- min $fiveGiB (mulf .Values.storage.persistentVolume.size 0.05 | int64) -}}
+  {{- end -}}
 {{- else -}}
 {{- $fiveGiB -}}
 {{- end -}}
@@ -466,17 +289,12 @@ than 1 core.
 {{- toJson (dict "bool" $result) -}}
 {{- end -}}
 
-# manage backward compatibility with renaming podSecurityContext to securityContext
 {{- define "pod-security-context" -}}
-fsGroup: {{ dig "podSecurityContext" "fsGroup" .Values.statefulset.securityContext.fsGroup .Values.statefulset }}
-fsGroupChangePolicy: {{ dig "securityContext" "fsGroupChangePolicy" "OnRootMismatch" .Values.statefulset }}
+{{- get ((include "redpanda.PodSecurityContext" (dict "a" (list .))) | fromJson) "r" | toYaml }}
 {{- end -}}
 
-# for backward compatibility, force a default on releases that didn't
-# set the podSecurityContext.runAsUser before
 {{- define "container-security-context" -}}
-runAsUser: {{ dig "podSecurityContext" "runAsUser" .Values.statefulset.securityContext.runAsUser .Values.statefulset }}
-runAsGroup: {{ dig "podSecurityContext" "fsGroup" .Values.statefulset.securityContext.fsGroup .Values.statefulset }}
+{{- get ((include "redpanda.ContainerSecurityContext" (dict "a" (list .))) | fromJson) "r" | toYaml }}
 {{- end -}}
 
 {{- define "admin-tls-curl-flags" -}}
@@ -548,7 +366,7 @@ advertised-host returns a json string with the data needed for configuring the a
 */}}
 {{- define "warnings" -}}
   {{- $result := list -}}
-  {{- $warnings := list "redpanda-memory-warning" "redpanda-cpu-warning" -}}
+  {{- $warnings := list "redpanda-cpu-warning" -}}
   {{- range $t := $warnings -}}
     {{- $warning := include $t $ -}}
       {{- if $warning -}}
@@ -557,16 +375,6 @@ advertised-host returns a json string with the data needed for configuring the a
   {{- end -}}
   {{/* fromJson cannot decode list */}}
   {{- toJson (dict "result" $result) -}}
-{{- end -}}
-
-{{/*
-return a warning if the chart is configured with insufficient memory
-*/}}
-{{- define "redpanda-memory-warning" -}}
-  {{- $result := (include "redpanda-memory" .) | int -}}
-  {{- if lt $result 2000 -}}
-    {{- printf "%d is below the minimum recommended value for Redpanda" $result -}}
-  {{- end -}}
 {{- end -}}
 
 {{/*
@@ -857,37 +665,6 @@ REDPANDA_SASL_USERNAME REDPANDA_SASL_PASSWORD REDPANDA_SASL_MECHANISM
 
 {{/* check if client auth is enabled for any of the listeners */}}
 {{- define "client-auth-required" -}}
-  {{- with .Values.listeners -}}
-    {{- $requireClientAuth := or
-        .kafka.tls.requireClientAuth
-        .admin.tls.requireClientAuth
-        .schemaRegistry.tls.requireClientAuth
-        .rpc.tls.requireClientAuth
-        .http.tls.requireClientAuth
-    -}}
-    {{- toJson (dict "bool" $requireClientAuth) -}}
-  {{- end -}}
-{{- end -}}
-
-{{- define "storage-tiered-credentials-secret-key" -}}
-{{- $oldCondtion := (and .Values.storage.tiered.credentialsSecretRef.name .Values.storage.tiered.credentialsSecretRef.key) -}}
-{{- $newCondtion := (and .Values.storage.tiered.credentialsSecretRef.secretKey.name .Values.storage.tiered.credentialsSecretRef.secretKey.key) -}}
-{{- $configurationKey := (dig "configurationKey" "" .Values.storage.tiered.credentialsSecretRef) -}}
-{{- if empty $configurationKey -}}
-  {{- $configurationKey = .Values.storage.tiered.credentialsSecretRef.secretKey.configurationKey -}}
-{{- end -}}
-{{- $key := (dig "key" "" .Values.storage.tiered.credentialsSecretRef) -}}
-{{- if empty $key -}}
-  {{- $key = .Values.storage.tiered.credentialsSecretRef.secretKey.key -}}
-{{- end -}}
-{{- $name := (dig "name" "" .Values.storage.tiered.credentialsSecretRef) -}}
-{{- if empty $name -}}
-  {{- $name = .Values.storage.tiered.credentialsSecretRef.secretKey.name -}}
-{{- end -}}
-{{- toJson (dict
-  "bool" (or $oldCondtion $newCondtion)
-  "configurationKey" $configurationKey
-  "key" $key
-  "name" $name
-) -}}
+{{- $requireClientAuth := get ((include "redpanda.ClientAuthRequired" (dict "a" (list .))) | fromJson) "r" }}
+{{- toJson (dict "bool" $requireClientAuth) -}}
 {{- end -}}
