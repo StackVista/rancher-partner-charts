@@ -99,7 +99,7 @@ extraObjects:
 
 To expose the dashboard without IngressRoute, it's more complicated and less
 secure. You'll need to create an internal Service exposing Traefik API with
-special _traefik_ entrypoint.
+special _traefik_ entrypoint. This internal Service can be created from an other tool, with the `extraObjects` section or using [custom services](#add-custom-internal-services).
 
 You'll need to double check:
 1. Service selector with your setup.
@@ -295,11 +295,15 @@ ports:
       enabled: true
 ```
 
-# Use ProxyProtocol on Digital Ocean
+# Use PROXY protocol on Digital Ocean
 
 PROXY protocol is a protocol for sending client connection information, such as origin IP addresses and port numbers, to the final backend server, rather than discarding it at the load balancer.
 
 ```yaml
+.DOTrustedIPs: &DOTrustedIPs
+  - 127.0.0.1/32
+  - 10.120.0.0/16
+
 service:
   enabled: true
   type: LoadBalancer
@@ -310,13 +314,17 @@ service:
     # This is the default and should stay as cluster to keep the DO health checks working.
     externalTrafficPolicy: Cluster
 
-additionalArguments:
-  # Tell Traefik to only trust incoming headers from the Digital Ocean Load Balancers.
-  - "--entryPoints.web.proxyProtocol.trustedIPs=127.0.0.1/32,10.120.0.0/16"
-  - "--entryPoints.websecure.proxyProtocol.trustedIPs=127.0.0.1/32,10.120.0.0/16"
-  # Also whitelist the source of headers to trust,  the private IPs on the load balancers displayed on the networking page of DO.
-  - "--entryPoints.web.forwardedHeaders.trustedIPs=127.0.0.1/32,10.120.0.0/16"
-  - "--entryPoints.websecure.forwardedHeaders.trustedIPs=127.0.0.1/32,10.120.0.0/16"
+ports:
+  web:
+    forwardedHeaders:
+      trustedIPs: *DOTrustedIPs
+    proxyProtocol:
+      trustedIPs: *DOTrustedIPs
+  websecure:
+    forwardedHeaders:
+      trustedIPs: *DOTrustedIPs
+    proxyProtocol:
+      trustedIPs: *DOTrustedIPs
 ```
 
 # Enable plugin storage
@@ -348,6 +356,21 @@ By default, Kubernetes recursively changes ownership and permissions for the con
 => An initContainer can be used to avoid an issue on this sensitive file.
 See [#396](https://github.com/traefik/traefik-helm-chart/issues/396) for more details.
 
+**Step 1**: Create `Secret` with CloudFlare token:
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudflare
+type: Opaque
+stringData:
+  token: TTT
+```
+
+**Step 2**:
+
 ```yaml
 persistence:
   enabled: true
@@ -361,8 +384,8 @@ env:
   - name: CF_DNS_API_TOKEN
     valueFrom:
       secretKeyRef:
-        name: yyy
-        key: zzz
+        name: cloudflare
+        key: token
 deployment:
   initContainers:
     - name: volume-permissions
@@ -371,6 +394,20 @@ deployment:
       volumeMounts:
       - mountPath: /data
         name: data
+```
+
+and after, in an `IngressRoute`:
+
+```yaml
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: [...]
+spec:
+  entryPoints: [...]
+  routes: [...]
+  tls:
+    certResolver: letsencrypt
 ```
 
 This example needs a CloudFlare token in a Kubernetes `Secret` and a working `StorageClass`.
@@ -473,6 +510,59 @@ spec:
       port: 80
 ```
 
+# Add custom (internal) services
+
+In some cases you might want to have more than one Traefik service within your cluster,
+e.g. a default (external) one and a service that is only exposed internally to pods within your cluster.
+
+The `service.additionalServices` allows you to add an arbitrary amount of services,
+provided as a name to service details mapping; for example you can use the following values:
+
+```yaml
+service:
+  additionalServices:
+    internal:
+      type: ClusterIP
+      labels:
+        traefik-service-label: internal
+```
+
+Ports can then be exposed on this service by using the port name to boolean mapping `expose` on the respective port;
+e.g. to expose the `traefik` API port on your internal service so pods within your cluster can use it, you can do:
+
+```yaml
+ports:
+  traefik:
+    expose:
+      # Sensitive data should not be exposed on the internet
+      # => Keep this disabled !
+      default: false
+      internal: true
+```
+
+This will then provide an additional Service manifest, looking like this:
+
+```yaml
+---
+# Source: traefik/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik-internal
+  namespace: traefik
+[...]
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik-traefik
+  ports:
+  - port: 9000
+    name: "traefik"
+    targetPort: traefik
+    protocol: TCP
+```
+
 # Use this Chart as a dependency of your own chart
 
 
@@ -527,4 +617,16 @@ spec:
     kind: Deployment
     name: release-name-traefik
   maxReplicas: 3
+```
+
+# Use latest build of Traefik v3 from master
+
+An experimental build of Traefik Proxy is available on a specific repository.
+
+It can be used with those _values_:
+
+```yaml
+image:
+  repository: traefik/traefik
+  tag: experimental-v3.0
 ```
