@@ -134,7 +134,9 @@ spec:
         {{- if (and .Values.global.metrics.enabled .Values.global.metrics.enableAgentMetrics) }}
         {{- if not .Values.global.metrics.datadog.openMetricsPrometheus.enabled }}
         "prometheus.io/scrape": "true"
+        {{- if not (hasKey (default "" .Values.server.annotations | fromYaml) "prometheus.io/path")}}
         "prometheus.io/path": "/v1/agent/metrics"
+        {{- end }}
         {{- if .Values.global.tls.enabled }}
         "prometheus.io/port": "8501"
         "prometheus.io/scheme": "https"
@@ -506,8 +508,17 @@ spec:
                 {{- if and .Values.global.cloud.enabled .Values.global.cloud.resourceId.secretName }}
                 -hcl="cloud { resource_id = \"${HCP_RESOURCE_ID}\" }"
                 {{- end }}
-                {{- if (mustHas "resource-apis" .Values.global.experiments) }}
-                -hcl="experiments=[\"resource-apis\"]"
+                
+                {{- if .Values.global.experiments }}
+                {{- $commaSeparatedValues := "" }}
+                {{- range $index, $value := .Values.global.experiments }}
+                  {{- if ne $index 0 }}
+                    {{- $commaSeparatedValues = printf "%s,\\\"%s\\\"" $commaSeparatedValues $value }}
+                  {{- else }}
+                    {{- $commaSeparatedValues = printf "\\\"%s\\\"" $value }}
+                  {{- end }}
+                {{- end }}
+                -hcl="experiments=[{{ $commaSeparatedValues }}]"
                 {{- end }}
           volumeMounts:
             - name: data-{{ .Release.Namespace | trunc 58 | trimSuffix "-" }}
