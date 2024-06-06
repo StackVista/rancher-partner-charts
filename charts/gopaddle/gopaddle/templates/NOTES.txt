@@ -1,0 +1,4 @@
+Congratulations! You have successfully installed gopaddle.
+
+Kubernetes IDE can now be accessed via http://<cluster-node-ip>:30003
+
