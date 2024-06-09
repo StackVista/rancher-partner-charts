@@ -12,9 +12,162 @@ Use the following links to reference issues, PRs, and commits prior to v2.6.0.
 The changelog until v1.5.7 was auto-generated based on git commits.
 Those entries include a reference to the git commit to be able to get more details.
 
+## 5.1.30
+
+Add `controller.JCasC.configMapAnnotations` to allow setting annotations on the JCasC ConfigMaps.
+
+## 5.1.29
+
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.27.4`
+
+## 5.1.28
+
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.27.3`
+
+## 5.1.27
+
+Update `kubernetes` to version `4244.v4fb_b_00994a_90`
+
+## 5.1.26
+
+Update `kubernetes` to version `4238.v41b_3ef14a_5d8`
+
+## 5.1.25
+
+Update `kubernetes` to version `4236.vc06f753c3234`
+
+## 5.1.24
+
+Update `kubernetes` to version `4234.vdf3e78112369`
+
+## 5.1.23
+
+Update `kubernetes` to version `4233.vb_67a_0e11a_039`
+
+## 5.1.22
+
+Update `configuration-as-code` to version `1810.v9b_c30a_249a_4c`
+
+## 5.1.21
+
+Update `kubernetes` to version `4231.vb_a_6b_8936497d`
+
+## 5.1.20
+
+Update `kubernetes` to version `4230.vceef11cb_ca_37`
+
+## 5.1.19
+
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.27.2`
+
+## 5.1.18
+
+Update `configuration-as-code` to version `1807.v0175eda_00a_20`
+
+## 5.1.17
+
+Update `jenkins/inbound-agent` to version `3248.v65ecb_254c298-1`
+
+## 5.1.16
+
+Update `configuration-as-code` to version `1805.v1455f39c04cf`
+
+## 5.1.15
+
+Update `jenkins/jenkins` to version `2.452.1-jdk17`
+
+## 5.1.14
+
+Update `kubernetes` to version `4219.v40ff98cfb_d6f`
+
+## 5.1.13
+
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.27.1`
+
+## 5.1.12
+
+Update `git` to version `5.2.2`
+
+## 5.1.11
+
+Update `kubernetes` to version `4214.vf10083a_42e70`
+
+## 5.1.10
+
+Update `kubernetes` to version `4211.v08850dd0dfa_3`
+
+## 5.1.9
+
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.26.2`
+
+## 5.1.8
+
+Update `kubernetes` to version `4209.vc646b_71e5269`
+
+## 5.1.7
+
+Update `kubernetes` to version `4208.v4017b_a_27a_d67`
+
+## 5.1.6
+
+Update `jenkins/jenkins` to version `2.440.3-jdk17`
+
+## 5.1.5
+
+Fix Prometheus controller name.
+
+## 5.1.4
+
+Update `docker.io/bats/bats` to version `1.11.0`
+
+## 5.1.3
+
+Update `jenkins/jenkins` to version `2.440.2-jdk17`
+
+## 5.1.2
+
+Update `kubernetes` to version `4203.v1dd44f5b_1cf9`
+
+## 5.1.1
+
+Update `kubernetes` to version `4199.va_1647c280eb_2`
+
+## 5.1.0
+
+Add `agent.restrictedPssSecurityContext` to automatically inject in the jnlp container a securityContext that is suitable for the use of the restricted Pod Security Standard
+
+## 5.0.20
+
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.26.1`
+
+## 5.0.19
+
+Introduced helm-docs to automatically generate `values.yaml` documentation.
+
+## 5.0.18
+
+Update `kubernetes` to version `4193.vded98e56cc25`
+
+## 5.0.17
+
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.26.0`
+
+## 5.0.16
+
+Enable support for deleting plugin configuration files at startup.
+
+## 5.0.15
+
+Fixed changelog entries for previous version bumps
+
+
+## 5.0.14
+
+Update `jenkins/jenkins` to version `2.440.1-jdk17`
+
 ## 5.0.13
 
-Update `docker.io/kiwigrid/k8s-sidecar` to version `docker.io/kiwigrid/k8s-sidecar`
+Update `docker.io/kiwigrid/k8s-sidecar` to version `1.25.4`
 
 ## 5.0.12
 
@@ -27,7 +180,7 @@ Fix controller.sidecars.additionalSidecarContainers renaming and add tests
 
 ## 5.0.10
 
-Update `jenkins/inbound-agent` to version `jenkins/inbound-agent`
+Update `jenkins/inbound-agent` to version `3206.vb_15dcf73f6a_9-3`
 
 ## 5.0.9
 
