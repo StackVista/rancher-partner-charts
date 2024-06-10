@@ -62,6 +62,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            {{- if (semverCompare ">=1.7.0-0" .Values.image.tag) }}
+            - name: DD_TOOL_VERSION
+              value: "helm"
+            {{- end }}
             {{- if or .Values.apiKey .Values.apiKeyExistingSecret }}
             - name: DD_API_KEY
               valueFrom:
@@ -107,6 +111,12 @@ spec:
           {{- end }}
           {{- if and .Values.maximumGoroutines (semverCompare ">=1.0.0-rc.13" .Values.image.tag) }}
             - "-maximumGoroutines={{ .Values.maximumGoroutines }}"
+          {{- end }}
+          {{- if (semverCompare ">=1.4.0" .Values.image.tag) }}
+            - "-introspectionEnabled={{ .Values.introspection.enabled }}"
+          {{- end }}
+          {{- if (semverCompare ">=1.5.0" .Values.image.tag) }}
+            - "-datadogAgentProfileEnabled={{ .Values.datadogAgentProfile.enabled }}"
           {{- end }}
             - "-datadogMonitorEnabled={{ .Values.datadogMonitor.enabled }}"
           {{- if (semverCompare ">=1.0.0-rc.13" .Values.image.tag) }}
