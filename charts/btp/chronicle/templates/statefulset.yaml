@@ -104,7 +104,7 @@ spec:
             - |
               {{ if .Values.auth.required }}
               {{ if and (not .Values.auth.jwks.url) (not .Values.auth.userinfo.url) (not .Values.devIdProvider.enabled) }}
-              {{ required "If auth.required you need to provide at least auth.jwks.url or auth.userinfo.url" .Values.auth.jwks.url }}
+              {{ required "If 'auth.required' you need to provide at least 'auth.jwks.url' or 'auth.userinfo.url', or 'devIdProvider.enabled' must be 'true'!" .Values.auth.jwks.url }}
               {{ end }}
               {{ end }}
 
@@ -122,18 +122,17 @@ spec:
                 --embedded-opa-policy \
                 {{- end }}
                 serve-api \
-                  --interface 0.0.0.0:{{ .Values.port}} \
+                  --interface 0.0.0.0:{{ .Values.port }} \
+                  {{- if .Values.livenessProbe.enabled }}
+                  --liveness-interval {{ .Values.livenessProbe.periodSeconds }}
+                  --liveness-deadline {{ .Values.livenessProbe.timeoutSeconds }}
+                  {{- end }}
                   {{- if .Values.auth.required }}
                   --require-auth \
-                  --id-claims {{ .Values.auth.id.claims }} \
-                  {{- if .Values.auth.jwks.enabled }}
-                  --jwks-address {{ include "chronicle.jwksUrl" . }} \
                   {{- end }}
-                  {{- if .Values.auth.userinfo.url }}
-                  --userinfo-address {{ include "chronicle.userinfoUrl" . }} \
-                  {{- end }}
-                  {{- end }}
-                  ;
+                  {{ include "chronicle.jwks-url.cli" . }}
+                  {{ include "chronicle.userinfo-url.cli" . }}
+                  {{ include "chronicle.id-claims" . }};
           env: {{ include "lib.safeToYaml" .Values.env | nindent 12 }}
             - name: RUST_LOG
               value: {{ .Values.logLevel }}
@@ -148,6 +147,26 @@ spec:
               {{- end }}
             {{- include "lib.safeToYaml" .Values.postgres.env | nindent 12 }}
           resources: {{- include "lib.safeToYaml" .Values.resources | nindent 12 }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            exec:
+              command:
+              - /bin/bash
+              - /scripts/check_timeouts.sh
+            initialDelaySeconds: 1
+            periodSeconds: 1
+            failureThreshold: 1
+          {{- end}}
+          {{- if .Values.startUpProbe.enabled }}
+          readinessProbe:
+            exec:
+              command:
+              - /bin/bash
+              - /scripts/first_depth_charge.sh
+            initialDelaySeconds: 1
+            periodSeconds: 1
+            failureThreshold: 600
+          {{- end}}
           volumeMounts:
             - name: chronicle-config
               mountPath: /etc/chronicle/config/
@@ -156,6 +175,9 @@ spec:
               readOnly: true
             - name: chronicle-data
               mountPath: /var/lib/chronicle/store/
+            - name: check-metrics-available
+              mountPath: /scripts/
+              readOnly: true
             {{- include "lib.volumeMounts" .Values.extraVolumeMounts | nindent 12 }}
       volumes:
         - name: chronicle-secrets
@@ -167,10 +189,13 @@ spec:
         - name: chronicle-config
           configMap:
             name: {{ .Release.Name }}-chronicle-config
-{{- if not .Values.postgres.persistence.enabled }}
+        - name: check-metrics-available
+          configMap:
+            name:  {{ include "common.names.fullname" . }}-scripts
+        {{- if not .Values.postgres.persistence.enabled }}
         - name: "pgdata"
           emptyDir: {}
-{{- end }}
+        {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: chronicle-data
@@ -180,7 +205,7 @@ spec:
         resources:
           requests:
             storage: 6Gi
-{{- if .Values.postgres.persistence.enabled }}
+    {{- if .Values.postgres.persistence.enabled }}
     - metadata:
         name: "pgdata"
         annotations: {{- include "lib.safeToYaml" .Values.postgres.persistence.annotations | nindent 10 }}
@@ -190,4 +215,4 @@ spec:
         resources:
           requests:
             storage: {{ .Values.postgres.persistence.size | quote }}
-{{- end }}
+    {{- end }}
