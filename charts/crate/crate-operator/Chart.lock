@@ -1,6 +1,6 @@
 dependencies:
 - name: crate-operator-crds
   repository: file://../crate-operator-crds
-  version: 2.35.0
-digest: sha256:a67a1a3d07ce8276d9ab9eb2722b72213317802d33670ad1ba804944689a3087
-generated: "2024-02-15T09:09:42.445977198Z"
+  version: 2.39.0
+digest: sha256:a93ac45e35694d7e1f5eaf9ef8007495e086591cb647ed5bf27881d6385b6393
+generated: "2024-05-22T09:22:58.388083858Z"

@@ -19,6 +19,7 @@ as well as the global.name setting.
 {{- if not .Values.global.enablePodSecurityPolicies -}}
 securityContext:
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
     - ALL
@@ -189,24 +190,27 @@ Expand the name of the chart.
 {{- end -}}
 
 {{/*
-Compute the maximum number of unavailable replicas for the PodDisruptionBudget.
-This defaults to (n/2)-1 where n is the number of members of the server cluster.
-Special case of replica equaling 3 and allowing a minor disruption of 1 otherwise
-use the integer value
-Add a special case for replicas=1, where it should default to 0 as well.
+Calculate max number of server pods that are allowed to be voluntarily disrupted.
+When there's 1 server, this is set to 0 because this pod should not be disrupted. This is an edge
+case and I'm not sure it makes a difference when there's only one server but that's what the previous config was and
+I don't want to change it for this edge case.
+Otherwise we've changed this to always be 1 as part of the move to set leave_on_terminate
+to true. With leave_on_terminate set to true, whenever a server pod is stopped, the number of peers in raft
+is reduced. If the number of servers is odd and the count is reduced by 1, the quorum size doesn't change,
+but if it's reduced by more than 1, the quorum size can change so that's why this is now always hardcoded to 1.
 */}}
-{{- define "consul.pdb.maxUnavailable" -}}
+{{- define "consul.server.pdb.maxUnavailable" -}}
 {{- if eq (int .Values.server.replicas) 1 -}}
 {{ 0 }}
 {{- else if .Values.server.disruptionBudget.maxUnavailable -}}
 {{ .Values.server.disruptionBudget.maxUnavailable -}}
 {{- else -}}
-{{- if eq (int .Values.server.replicas) 3 -}}
-{{- 1 -}}
-{{- else -}}
-{{- sub (div (int .Values.server.replicas) 2) 1 -}}
+{{ 1 }}
 {{- end -}}
 {{- end -}}
+
+{{- define "consul.server.autopilotMinQuorum" -}}
+{{- add (div (int .Values.server.replicas) 2) 1 -}}
 {{- end -}}
 
 {{- define "consul.pdb.connectInject.maxUnavailable" -}}
@@ -242,6 +246,7 @@ This template is for an init container.
 {{- define "consul.getAutoEncryptClientCA" -}}
 - name: get-auto-encrypt-client-ca
   image: {{ .Values.global.imageK8S }}
+  {{ template "consul.imagePullPolicy" . }}
   command:
     - "/bin/sh"
     - "-ec"
@@ -448,10 +453,10 @@ Usage: {{ template "consul.validateTelemetryCollectorCloud" . }}
 */}}
 {{- define "consul.validateTelemetryCollectorCloud" -}}
 {{- if (and .Values.telemetryCollector.cloud.clientId.secretName (and (not .Values.global.cloud.clientSecret.secretName) (not .Values.telemetryCollector.cloud.clientSecret.secretName))) }}
-{{fail "When telemetryCollector.cloud.clientId.secretName is set, telemetryCollector.cloud.clientSecret.secretName must also be set."}}
+{{fail "When telemetryCollector.cloud.clientId.secretName is set, telemetryCollector.cloud.clientSecret.secretName must also be set." }}
 {{- end }}
 {{- if (and .Values.telemetryCollector.cloud.clientSecret.secretName (and (not .Values.global.cloud.clientId.secretName) (not .Values.telemetryCollector.cloud.clientId.secretName))) }}
-{{fail "When telemetryCollector.cloud.clientSecret.secretName is set, telemetryCollector.cloud.clientId.secretName must also be set."}}
+{{fail "When telemetryCollector.cloud.clientSecret.secretName is set, telemetryCollector.cloud.clientId.secretName must also be set." }}
 {{- end }}
 {{- end }}
 
@@ -502,7 +507,6 @@ Fails if global.experiments.resourceAPIs is set along with any of these unsuppor
 - meshGateway.enabled
 - ingressGateways.enabled
 - terminatingGateways.enabled
-- apiGateway.enabled
 
 Usage: {{ template "consul.validateResourceAPIs" . }}
 
@@ -511,8 +515,8 @@ Usage: {{ template "consul.validateResourceAPIs" . }}
 {{- if (and (mustHas "resource-apis" .Values.global.experiments) .Values.global.peering.enabled ) }}
 {{fail "When the value global.experiments.resourceAPIs is set, global.peering.enabled is currently unsupported."}}
 {{- end }}
-{{- if (and (mustHas "resource-apis" .Values.global.experiments) .Values.global.adminPartitions.enabled ) }}
-{{fail "When the value global.experiments.resourceAPIs is set, global.adminPartitions.enabled is currently unsupported."}}
+{{- if (and (mustHas "resource-apis" .Values.global.experiments) (not (mustHas "v2tenancy" .Values.global.experiments)) .Values.global.adminPartitions.enabled ) }}
+{{fail "When the value global.experiments.resourceAPIs is set, global.experiments.v2tenancy must also be set to support global.adminPartitions.enabled."}}
 {{- end }}
 {{- if (and (mustHas "resource-apis" .Values.global.experiments) .Values.global.federation.enabled ) }}
 {{fail "When the value global.experiments.resourceAPIs is set, global.federation.enabled is currently unsupported."}}
@@ -529,17 +533,11 @@ Usage: {{ template "consul.validateResourceAPIs" . }}
 {{- if (and (mustHas "resource-apis" .Values.global.experiments) .Values.syncCatalog.enabled ) }}
 {{fail "When the value global.experiments.resourceAPIs is set, syncCatalog.enabled is currently unsupported."}}
 {{- end }}
-{{- if (and (mustHas "resource-apis" .Values.global.experiments) .Values.meshGateway.enabled ) }}
-{{fail "When the value global.experiments.resourceAPIs is set, meshGateway.enabled is currently unsupported."}}
-{{- end }}
 {{- if (and (mustHas "resource-apis" .Values.global.experiments) .Values.ingressGateways.enabled ) }}
 {{fail "When the value global.experiments.resourceAPIs is set, ingressGateways.enabled is currently unsupported."}}
 {{- end }}
 {{- if (and (mustHas "resource-apis" .Values.global.experiments) .Values.terminatingGateways.enabled ) }}
 {{fail "When the value global.experiments.resourceAPIs is set, terminatingGateways.enabled is currently unsupported."}}
-{{- end }}
-{{- if (and (mustHas "resource-apis" .Values.global.experiments) .Values.apiGateway.enabled ) }}
-{{fail "When the value global.experiments.resourceAPIs is set, apiGateway.enabled is currently unsupported."}}
 {{- end }}
 {{- end }}
 
@@ -684,5 +682,23 @@ Usage: {{ template "consul.versionInfo" }}
 {{- else }}
     {{- $sanitizedVersion = $versionInfo }}
 {{- end -}}
-{{- printf "%s" $sanitizedVersion | quote }}
+{{- printf "%s" $sanitizedVersion | trunc 63 | quote }}
+{{- end -}}
+
+{{/*
+Sets the imagePullPolicy for all Consul images (consul, consul-dataplane, consul-k8s, consul-telemetry-collector)
+Valid values are:
+    IfNotPresent
+    Always
+    Never
+    In the case of empty, see https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy for details
+
+Usage: {{ template "consul.imagePullPolicy" . }} TODO: melisa should we name this differently ?
+*/}}
+{{- define "consul.imagePullPolicy" -}}
+{{ if or (eq .Values.global.imagePullPolicy "IfNotPresent") (eq .Values.global.imagePullPolicy "Always") (eq .Values.global.imagePullPolicy "Never")}}imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{ else if eq .Values.global.imagePullPolicy "" }}
+{{ else }}
+{{fail "imagePullPolicy can only be IfNotPresent, Always, Never, or empty" }}
+{{ end }}
 {{- end -}}
