@@ -85,10 +85,15 @@ spec:
         runAsNonRoot: true
         runAsUser:  1000
         runAsGroup: 1000
+{{- if .Values.controller.allowPrivilegedPorts }}
+        sysctls:
+         - name: net.ipv4.ip_unprivileged_port_start
+           value: "0"
+{{- end }}
 {{- end }}
       containers:
         - name: {{ include "kubernetes-ingress.name" . }}-{{ .Values.controller.name }}
-          image: "{{ .Values.controller.image.repository }}:{{ tpl .Values.controller.image.tag . }}"
+          image: "{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
           args:
 {{- if .Values.controller.defaultTLSSecret.enabled -}}
@@ -101,6 +106,10 @@ spec:
           - --configmap={{ include "kubernetes-ingress.namespace" . }}/{{ include "kubernetes-ingress.fullname" . }}
           - --http-bind-port={{ .Values.controller.containerPort.http }}
           - --https-bind-port={{ .Values.controller.containerPort.https }}
+{{- if and (semverCompare ">=1.24.0-0" .Capabilities.KubeVersion.Version) .Values.controller.service.enablePorts.quic }}
+          - --quic-bind-port={{ .Values.controller.containerPort.https }}
+          - --quic-announce-port={{ .Values.controller.service.ports.https }}
+{{- end }}
 {{- if .Values.controller.ingressClass }}
           - --ingress.class={{ .Values.controller.ingressClass }}
 {{- end }}
@@ -142,6 +151,17 @@ spec:
               protocol: TCP
               {{- if $useHostPort }}
               hostPort: {{ index $hostPorts $key | default $value }}
+              {{- end }}
+              {{- if $hostIP }}
+              hostIP: {{ $hostIP }}
+              {{- end }}
+          {{- end }}
+          {{- if and (semverCompare ">=1.24.0-0" .Capabilities.KubeVersion.Version) .Values.controller.service.enablePorts.quic }}
+            - name: quic
+              containerPort: {{ .Values.controller.containerPort.https }}
+              protocol: UDP
+              {{- if $useHostPort }}
+              hostPort: {{ .Values.controller.daemonset.hostPorts.https }}
               {{- end }}
               {{- if $hostIP }}
               hostIP: {{ $hostIP }}
