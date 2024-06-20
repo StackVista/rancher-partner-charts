@@ -9,10 +9,17 @@ metadata:
     {{- end }}
   {{- end }}
   name: {{ include "argo-cd.server.fullname" . }}
-  namespace: {{ .Release.Namespace | quote }}
+  namespace: {{ include  "argo-cd.namespace" . }}
   labels:
     {{- include "argo-cd.labels" (dict "context" . "component" .Values.server.name "name" .Values.server.name) | nindent 4 }}
 spec:
+  secretTemplate:
+    {{- with .Values.server.certificate.secretTemplateAnnotations }}
+    annotations:
+      {{- range $key, $value := . }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
+    {{- end }} 
   secretName: {{ .Values.server.certificate.secretName }}
   commonName: {{ .Values.server.certificate.domain | default .Values.global.domain }}
   dnsNames:
