@@ -81,6 +81,7 @@ spec:
       containers:
       - name: sync-catalog
         image: "{{ default .Values.global.imageK8S .Values.syncCatalog.image }}"
+        {{ template "consul.imagePullPolicy" . }}
         {{- include "consul.restrictedSecurityContext" . | nindent 8 }}
         env:
         {{- include "consul.consulK8sConsulServerEnvVars" . | nindent 8 }}
@@ -191,6 +192,9 @@ spec:
             {{- if .Values.syncCatalog.ingress.loadBalancerIPs }}
             -loadBalancer-ips=true \
             {{- end }}
+            {{- end }}
+            {{- if .Values.syncCatalog.syncLoadBalancerEndpoints }}
+            -sync-lb-services-endpoints=true \
             {{- end }}
         livenessProbe:
           httpGet:
