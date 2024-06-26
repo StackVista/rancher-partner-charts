@@ -13,7 +13,7 @@ questions:
 
   - variable: image
     label: "Set a custom image for operator components"
-    description: "Set a custom image for operator. Defaults to docker.io/dynatrace/dynatrace-operator"
+    description: "Set a custom image for operator. Defaults to public.ecr.aws/dynatrace/dynatrace-operator"
     default: ""
     type: string
     group: "Global Configuration"
@@ -175,20 +175,6 @@ questions:
   - variable: csidriver.provisioner.requests.memory
     label: "Memory resource requests settings for Dynatrace CSI Driver's provisioner container"
     description: "The minimum amount of memory that the Dynatrace CSI Driver's provisioner container should request. Affects scheduling. Default: 100Mi"
-    default: "100Mi"
-    type: string
-    group: "CSI Driver Deployment Configuration"
-
-  - variable: csidriver.provisioner.limits.cpu
-    label: "CPU resource limits settings for Dynatrace CSI Driver's provisioner container"
-    description: "The maximum amount of CPU resources that the Dynatrace CSI Driver's provisioner container can use. Default: 300m"
-    default: "300m"
-    type: string
-    group: "CSI Driver Deployment Configuration"
-
-  - variable: csidriver.provisioner.limits.memory
-    label: "Memory resource limits settings for Dynatrace CSI Driver's provisioner container"
-    description: "The maximum amount of memory that the Dynatrace CSI Driver's provisioner container can use. Pod restarted if exceeded. Default: 100Mi"
     default: "100Mi"
     type: string
     group: "CSI Driver Deployment Configuration"
