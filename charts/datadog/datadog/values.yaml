@@ -249,6 +249,15 @@ datadog:
   #   env: environment
   #   <KUBERNETES_NAMESPACE_LABEL>: <DATADOG_TAG_KEY>
 
+  # datadog.namespaceAnnotationsAsTags -- Provide a mapping of Kubernetes Namespace Annotations to Datadog Tags
+  namespaceAnnotationsAsTags: {}
+  #   env: environment
+  #   <KUBERNETES_NAMESPACE_ANNOTATIONS>: <DATADOG_TAG_KEY>
+
+  originDetectionUnified:
+    # datadog.originDetectionUnified.enabled -- Enabled enables unified mechanism for origin detection. Default: false. (Requires Agent 7.54.0+).
+    enabled: false
+
   # datadog.tags -- List of static tags to attach to every metric, event and service check collected by this Agent.
 
   ## Learn more about tagging: https://docs.datadoghq.com/tagging/
@@ -280,6 +289,9 @@ datadog:
     # datadog.kubelet.podLogsPath -- Path (on host) where the PODs logs are located
     # @default -- /var/log/pods on Linux, C:\var\log\pods on Windows
     podLogsPath:
+    # datadog.kubelet.coreCheckEnabled -- Toggle if kubelet core check should be used instead of Python check. (Requires Agent/Cluster Agent 7.53.0+)
+    # @default -- true
+    coreCheckEnabled: true
 
   # datadog.expvarPort -- Specify the port to expose pprof and expvar to not interfere with the agent metrics port from the cluster-agent, which defaults to 5000
   expvarPort: 6000
@@ -479,6 +491,35 @@ datadog:
 
       # datadog.apm.instrumentation.libVersions -- Inject specific version of tracing libraries with Single Step Instrumentation (beta).
       libVersions: {}
+
+      # datadog.apm.instrumentation.skipKPITelemetry -- Disable generating Configmap for APM Instrumentation KPIs
+      skipKPITelemetry: false
+
+      # Language detection currently only detects languages and adds them as annotations on deployments, but doesn't use these languages for injecting libraries to applicative pods.
+      # It requires Agent 7.52+ and Cluster Agent 7.52+
+      language_detection:
+        # datadog.apm.instrumentation.language_detection.enabled -- Run language detection to automatically detect languages of user workloads (beta).
+        enabled: true
+
+  ## Application Security Managment (ASM) configuration
+  ##
+  ## ASM is disabled by default and can be enabled by setting the various `enabled` fields to `true` under the `datadog.asm` section.
+  ## Manually adding the various environment variables to a pod will take precedence over the ones in the Helm chart.
+  ## These will only have an effect on containers that have Datadog client libraries installed, either manually or via Single Step Instrumentation (under the `datadog.apm.instrumentation` section).
+  ## It requires Datadog Cluster Agent 7.53.0+.
+  asm:
+    threats:
+      # datadog.asm.threats.enabled -- Enable Application Security Management Threats App & API Protection by injecting `DD_APPSEC_ENABLED=true` environment variable to all pods in the cluster
+      enabled: false
+
+    sca:
+      # datadog.asm.sca.enabled -- Enable Application Security Management Software Composition Analysis by injecting `DD_APPSEC_SCA_ENABLED=true` environment variable to all pods in the cluster
+      enabled: false
+
+    iast:
+      # datadog.asm.iast.enabled -- Enable Application Security Management Interactive Application Security Testing by injecting `DD_IAST_ENABLED=true` environment variable to all pods in the cluster
+      enabled: false
+
   ## OTLP ingest related configuration
   otlp:
     receiver:
@@ -746,6 +787,9 @@ datadog:
       # datadog.securityAgent.runtime.fimEnabled -- Set to true to enable Cloud Workload Security (CWS) File Integrity Monitoring
       fimEnabled: false
 
+      # datadog.securityAgent.runtime.useSecruntimeTrack -- Set to true to send Cloud Workload Security (CWS) events directly to the Agent events explorer
+      useSecruntimeTrack: true
+
       policies:
         # datadog.securityAgent.runtime.policies.configMap -- Contains CWS policies that will be used
         configMap:
@@ -891,7 +935,7 @@ clusterAgent:
     name: cluster-agent
 
     # clusterAgent.image.tag -- Cluster Agent image tag to use
-    tag: 7.51.0
+    tag: 7.54.0
 
     # clusterAgent.image.digest -- Cluster Agent image digest to use, takes precedence over tag if specified
     digest: ""
@@ -1052,6 +1096,12 @@ clusterAgent:
     ## Setting to Fail will require the admission controller to be present and pods to be injected before they are allowed to run.
     failurePolicy: Ignore
 
+    # clusterAgent.admissionController.containerRegistry -- Override the default registry for the admission controller.
+
+    ## The clusterAgent uses this configuration for apm.instrumentation, agentSidecar, and cwsInstrumentation, if
+    ## not otherwise specified.
+    containerRegistry:
+
     remoteInstrumentation:
       # clusterAgent.admissionController.remoteInstrumentation.enabled -- Enable polling and applying library injection using Remote Config.
       ## This feature is in beta, and enables Remote Config in the Cluster Agent. It also requires Cluster Agent version 7.43+.
@@ -1060,6 +1110,56 @@ clusterAgent:
 
     # clusterAgent.admissionController.port -- Set port of cluster-agent admission controller service
     port: 8000
+
+    agentSidecarInjection:
+      # clusterAgent.admissionController.agentSidecarInjection.enabled -- Enables Datadog Agent sidecar injection.
+
+      ## When enabled, the admission controller mutating webhook will inject an Agent sidecar with minimal configuration in every pod meeting the configured criteria.
+      enabled: false
+
+      # clusterAgent.admissionController.agentSidecarInjection.provider -- Used by the admission controller to add infrastructure provider-specific configurations to the Agent sidecar.
+
+      ## Currently only "fargate" is supported. To use the feature in other environments (including local testing) omit the config.
+      ## ref: https://docs.datadoghq.com/integrations/eks_fargate
+      provider:
+
+      # clusterAgent.admissionController.agentSidecarInjection.clusterAgentCommunicationEnabled -- Enable communication between Agent sidecars and the Cluster Agent.
+      clusterAgentCommunicationEnabled: true
+
+      # clusterAgent.admissionController.agentSidecarInjection.containerRegistry -- Override the default registry for the sidecar Agent.
+      containerRegistry:
+
+      # clusterAgent.admissionController.imageName -- Override the default agents.image.name for the Agent sidecar.
+      imageName:
+
+      # clusterAgent.admissionController.imageTag -- Override the default agents.image.tag for the Agent sidecar.
+      imageTag:
+
+      # clusterAgent.admissionController.agentSidecarInjection.selectors -- Defines the pod selector for sidecar injection, currently only one rule is supported.
+      selectors: []
+        # - objectSelector:
+        #   matchLabels:
+        #       "podlabelKey1": podlabelValue1
+        #       "podlabelKey2": podlabelValue2
+        #   namespaceSelector:
+        #     matchLabels:
+        #       "nsLabelKey1": nsLabelValue1
+        #       "nsLabelKey2": nsLabelValue2
+
+      # clusterAgent.admissionController.agentSidecarInjection.profiles -- Defines the sidecar configuration override, currently only one profile is supported.
+
+      ## This setting allows overriding the sidecar Agent configuration by adding environment variables and providing resource settings.
+      profiles: []
+        # - env:
+        #     - name: DD_ORCHESTRATOR_EXPLORER_ENABLED
+        #       value: "true"
+        #   resources:
+        #     requests:
+        #       cpu: "1"
+        #       memory: "512Mi"
+        #     limits:
+        #       cpu: "2"
+        #       memory: "1024Mi"
 
   # clusterAgent.confd -- Provide additional cluster check configurations. Each key will become a file in /conf.d.
 
@@ -1276,7 +1376,7 @@ fips:
     name: fips-proxy
 
     # fips.image.tag -- Define the FIPS sidecar container version to use.
-    tag: 1.1.1
+    tag: 1.1.2
 
     # fips.image.pullPolicy -- Datadog the FIPS sidecar image pull policy
     pullPolicy: IfNotPresent
@@ -1319,7 +1419,7 @@ agents:
     name: agent
 
     # agents.image.tag -- Define the Agent version to use
-    tag: 7.51.0
+    tag: 7.54.0
 
     # agents.image.digest -- Define Agent image digest to use, takes precedence over tag if specified
     digest: ""
@@ -1787,7 +1887,7 @@ clusterChecksRunner:
     name: agent
 
     # clusterChecksRunner.image.tag -- Define the Agent version to use
-    tag: 7.51.0
+    tag: 7.54.0
 
     # clusterChecksRunner.image.digest -- Define Agent image digest to use, takes precedence over tag if specified
     digest: ""
