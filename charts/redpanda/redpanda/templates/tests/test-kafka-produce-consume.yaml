@@ -14,9 +14,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */}}
+{{- if .Values.tests.enabled }}
 {{- $sasl := .Values.auth.sasl }}
-{{- $root := deepCopy . }}
-{{- $rpk := deepCopy . }}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -53,7 +52,7 @@ spec:
         - |
           set -e
 {{- $cloudStorageFlags := "" }}
-{{- if and (include "is-licensed" . | fromJson).bool (include "storage-tiered-config" .|fromJson).cloud_storage_enabled }}
+{{- if (include "storage-tiered-config" .|fromJson).cloud_storage_enabled }}
   {{- $cloudStorageFlags = "-c retention.bytes=80 -c segment.bytes=40 -c redpanda.remote.read=true -c redpanda.remote.write=true"}}
 {{- end }}
 {{- if .Values.auth.sasl.enabled }}
@@ -85,3 +84,4 @@ spec:
       resources: {{ toYaml .Values.statefulset.resources | nindent 12 }}
       securityContext: {{ include "container-security-context" . | nindent 8 }}
   volumes: {{ include "default-volumes" . | nindent 4 }}
+{{- end }}
