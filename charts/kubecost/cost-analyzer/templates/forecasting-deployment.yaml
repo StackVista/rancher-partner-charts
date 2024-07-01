@@ -22,6 +22,9 @@ spec:
         app.kubernetes.io/name: forecasting
         app.kubernetes.io/instance: {{ .Release.Name }}
         app: forecasting
+        {{- with .Values.global.additionalLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- with .Values.global.podAnnotations}}
       annotations:
         {{- toYaml . | nindent 8 }}
@@ -55,7 +58,11 @@ spec:
               mountPath: /tmp
           securityContext:
             {{- toYaml .Values.global.containerSecurityContext | nindent 12 }}
+          {{- if .Values.forecasting.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.forecasting.imagePullPolicy }}
+          {{- else }}
           imagePullPolicy: Always
+          {{- end }}
           ports:
             - name: tcp-api
               containerPort: 5000
@@ -67,10 +74,17 @@ spec:
           env:
             - name: CONFIG_PATH
               value: /var/configs/
+            {{- if or .Values.saml.enabled .Values.oidc.enabled }}
             - name: KCM_BASE_URL
-              value: http://{{ template "cost-analyzer.serviceName" . }}:9090/model
+              value: http://{{ template "aggregator.serviceName" . }}:9008
+            {{- else }}
+            - name: KCM_BASE_URL
+              value: http://{{ template "aggregator.serviceName" . }}:9004
+            {{- end }}
             - name: MODEL_STORAGE_PATH
               value: "/tmp/localrun/models"
+            - name: PAGE_ITEM_LIMIT
+              value: "1000"
             {{- range $key, $value := .Values.forecasting.env }}
             - name: {{ $key | quote }}
               value: {{ $value | quote }}

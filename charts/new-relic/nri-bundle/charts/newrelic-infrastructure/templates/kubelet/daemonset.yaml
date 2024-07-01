@@ -192,6 +192,7 @@ spec:
               mountPath: /var/log
             - name: host-volume
               mountPath: /host
+              mountPropagation: HostToContainer
               readOnly: true
             {{- end }}
             - mountPath: /var/db/newrelic-infra/data
@@ -256,8 +257,9 @@ spec:
       tolerations:
         {{- . | nindent 8 }}
       {{- end }}
-      {{- with .Values.kubelet.nodeSelector | default (fromYaml (include "newrelic.common.nodeSelector" .)) }}
       nodeSelector:
+        kubernetes.io/os: linux
+        {{- with .Values.kubelet.nodeSelector | default (fromYaml (include "newrelic.common.nodeSelector" .)) }}
         {{- toYaml . | nindent 8 }}
-      {{- end -}}
+        {{- end -}}
 {{- end }}
