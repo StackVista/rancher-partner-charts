@@ -151,7 +151,7 @@ Composes a container image from a dict containing a "name" field (required), "ta
 {{- $tag := .tag }}
 {{- $digest := .digest }}
 {{- if $digest }}
-{{- printf "%s@%s" $name $digest }}
+{{- printf "%s@sha256:%s" $name $digest }}
 {{- else if $tag }}
 {{- printf "%s:%s" $name $tag }}
 {{- else }}
@@ -250,6 +250,10 @@ Composes a container image from a dict containing a "name" field (required), "ta
 {{- if .Values.agent.listenAddress }}
 - name: INSTANA_AGENT_HTTP_LISTEN
   value: {{ .Values.agent.listenAddress | quote }}
+{{- end }}
+{{- if .Values.agent.serviceMesh.enabled }}
+- name: ENABLE_AGENT_SOCKET
+  value: {{ .Values.agent.serviceMesh.enabled | quote }}
 {{- end }}
 {{- if .Values.agent.redactKubernetesSecrets }}
 - name: INSTANA_KUBERNETES_REDACT_SECRETS
