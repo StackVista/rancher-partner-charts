@@ -23,10 +23,16 @@ rules:
 - apiGroups: ["linkerd.io"]
   resources: ["serviceprofiles"]
   verbs: ["list", "get", "watch"]
+- apiGroups: ["workload.linkerd.io"]
+  resources: ["externalworkloads"]
+  verbs: ["list", "get", "watch"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["create", "get", "update", "patch"]
   {{- if .Values.enableEndpointSlices }}
 - apiGroups: ["discovery.k8s.io"]
   resources: ["endpointslices"]
-  verbs: ["list", "get", "watch"]
+  verbs: ["list", "get", "watch", "create", "update", "patch", "delete"]
   {{- end }}
 ---
 kind: ClusterRoleBinding
@@ -179,6 +185,12 @@ webhooks:
     - meshtlsauthentications
     - serverauthorizations
     - servers
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: ["gateway.networking.k8s.io"]
+    apiVersions: ["*"]
+    resources:
+    - httproutes
+    - grpcroutes
   sideEffects: None
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -222,6 +234,7 @@ rules:
       - gateway.networking.k8s.io
     resources:
       - httproutes
+      - grpcroutes
     verbs:
       - get
       - list
@@ -236,8 +249,17 @@ rules:
       - gateway.networking.k8s.io
     resources:
       - httproutes/status
+      - grpcroutes/status
     verbs:
       - patch
+  - apiGroups:
+      - workload.linkerd.io
+    resources:
+      - externalworkloads
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - coordination.k8s.io
     resources:
