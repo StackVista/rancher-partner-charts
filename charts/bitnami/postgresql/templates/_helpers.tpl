@@ -1,5 +1,5 @@
 {{/*
-Copyright VMware, Inc.
+Copyright Broadcom, Inc. All Rights Reserved.
 SPDX-License-Identifier: APACHE-2.0
 */}}
 
@@ -264,6 +264,17 @@ Return true if a configmap should be mounted with PostgreSQL configuration
 {{- define "postgresql.v1.mountConfigurationCM" -}}
 {{- if or .Values.primary.configuration .Values.primary.pgHbaConfiguration .Values.primary.existingConfigmap -}}
     {{- true -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the pre-initialization scripts ConfigMap name.
+*/}}
+{{- define "postgresql.v1.preInitDb.scriptsCM" -}}
+{{- if .Values.primary.preInitDb.scriptsConfigMap -}}
+    {{- printf "%s" (tpl .Values.primary.preInitDb.scriptsConfigMap $) -}}
+{{- else -}}
+    {{- printf "%s-preinit-scripts" (include "postgresql.v1.primary.fullname" .) -}}
 {{- end -}}
 {{- end -}}
 
