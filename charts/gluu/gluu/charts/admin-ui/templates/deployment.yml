@@ -83,9 +83,6 @@ spec:
         {{- with .Values.volumeMounts }}
 {{- toYaml . | nindent 10 }}
         {{- end }}
-          - mountPath: /etc/jans/conf/ssa
-            name: license-ssa
-            subPath: ssa
         {{ if or (eq .Values.global.configSecretAdapter "aws") (eq .Values.global.configAdapterName "aws") }}
           - mountPath: {{ .Values.global.cnAwsSharedCredentialsFile }}
             name: aws-shared-credential-file
@@ -101,6 +98,14 @@ spec:
           - mountPath: {{ .Values.global.cnGoogleApplicationCredentials }}
             name: google-sa
             subPath: google-credentials.json
+        {{- end }}
+        {{ if eq .Values.global.configSecretAdapter "vault" }}
+          - name: vault
+            mountPath: /etc/certs/vault_role_id
+            subPath: vault_role_id
+          - name: vault
+            mountPath: /etc/certs/vault_secret_id
+            subPath: vault_secret_id
         {{- end }}
         {{- if and (not .Values.global.isFqdnRegistered ) (or (eq .Values.global.storageClass.provisioner "kubernetes.io/aws-ebs") (eq .Values.global.storageClass.provisioner "openebs.io/local")) }}
           - name: {{ include "admin-ui.fullname" .}}-updatelbip
@@ -152,9 +157,6 @@ spec:
       {{- with .Values.volumes }}
 {{- toYaml . | nindent 8 }}
       {{- end }}
-        - name: license-ssa
-          secret:
-            secretName: {{ .Release.Name }}-license-ssa
       {{ if or (eq .Values.global.configSecretAdapter "aws") (eq .Values.global.configAdapterName "aws") }}
         - name: aws-shared-credential-file
           secret:
@@ -180,6 +182,16 @@ spec:
           secret:
             secretName: {{ .Release.Name }}-google-sa
       {{- end }}
+      {{ if eq .Values.global.configSecretAdapter "vault" }}
+        - name: vault
+          secret:
+            secretName: {{ .Release.Name }}-vault
+            items:
+            - key: vault_role_id
+              path: vault_role_id
+            - key: vault_secret_id
+              path: vault_secret_id
+      {{- end }}
       {{- if or (eq .Values.global.cnPersistenceType "couchbase") (eq .Values.global.cnPersistenceType "hybrid") }}
         {{- if not .Values.global.istio.enabled }}
         - name: cb-crt
@@ -190,7 +202,7 @@ spec:
           secret:
             secretName: {{ .Release.Name }}-cb-pass
             items:
-              # we are mostly need non-superuser couchbase password file here
+              # we mostly need non-superuser couchbase password file here
               - key: couchbase_password
                 path: couchbase_password
       {{- end }}

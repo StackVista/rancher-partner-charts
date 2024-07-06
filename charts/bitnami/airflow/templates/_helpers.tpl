@@ -1,5 +1,5 @@
 {{/*
-Copyright VMware, Inc.
+Copyright Broadcom, Inc. All Rights Reserved.
 SPDX-License-Identifier: APACHE-2.0
 */}}
 
@@ -159,6 +159,8 @@ Get the Postgresql credentials secret.
         {{- if .Values.global.postgresql.auth }}
             {{- if .Values.global.postgresql.auth.existingSecret }}
                 {{- tpl .Values.global.postgresql.auth.existingSecret $ -}}
+            {{- else -}}
+                {{- default (include "airflow.postgresql.fullname" .) (tpl .Values.postgresql.auth.existingSecret $) -}}
             {{- end -}}
         {{- else -}}
             {{- if and ( .Values.postgresql.auth.existingSecret ) ( .Values.postgresql.auth.enablePostgresUser ) }}
@@ -204,7 +206,7 @@ Load DAGs init-container
   image: {{ include "airflow.dags.image" .context }}
   imagePullPolicy: {{ .context.Values.dags.image.pullPolicy }}
   {{- if $compDefinition.containerSecurityContext.enabled }}
-  securityContext: {{- omit $compDefinition.containerSecurityContext "enabled" | toYaml | nindent 4 }}
+  securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" $compDefinition.containerSecurityContext "context" .context) | nindent 4 }}
   {{- end }}
   command:
     - /bin/bash
@@ -213,10 +215,14 @@ Load DAGs init-container
     - |
       cp /configmap/* /dags
   volumeMounts:
+    - name: empty-dir
+      mountPath: /tmp
+      subPath: tmp-dir
     - name: load-external-dag-files
       mountPath: /configmap
-    - name: external-dag-files
+    - name: empty-dir
       mountPath: /dags
+      subPath: app-external-dag-dir
 {{- end -}}
 
 {{/*
@@ -381,6 +387,10 @@ Add environment variables to configure airflow common values
       key: airflow-secret-key
 - name: AIRFLOW_LOAD_EXAMPLES
   value: {{ ternary "yes" "no" .Values.loadExamples | quote }}
+{{- if not (or .Values.configuration .Values.existingConfigmap) }}
+- name: AIRFLOW_FORCE_OVERWRITE_CONF_FILE
+  value: "yes"
+{{- end }}
 {{- if .Values.web.image.debug }}
 - name: BASH_DEBUG
   value: "1"
