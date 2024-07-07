@@ -20,6 +20,7 @@ spec:
     rollingUpdate:
       maxUnavailable: {{ .Values.agent.updateStrategy.rollingUpdate.maxUnavailable }}
     {{- end }}
+  minReadySeconds: {{ $.Values.agent.minReadySeconds }}
   template:
     metadata:
       labels:
@@ -32,11 +33,9 @@ spec:
       {{- if .Values.agent.pod.annotations }}
         {{- toYaml .Values.agent.pod.annotations | nindent 8 }}
       {{- end }}
-      {{- if not .Values.templating }}
         # To ensure that changes to agent.configuration_yaml or agent.additional_backends trigger a Pod recreation, we keep a SHA here
         # Unfortunately, we cannot use the lookup function to check on the values in the configmap, otherwise we break Helm < 3.2
         instana-configuration-hash: {{ .Values.agent.configuration_yaml | cat ";" | cat ( join "," .Values.agent.additionalBackends ) | sha1sum }}
-      {{- end }}
     spec:
       serviceAccountName: {{ template "instana-agent.serviceAccountName" . }}
       {{- if .Values.agent.pod.nodeSelector }}
@@ -174,12 +173,15 @@ spec:
         - name: var-run-kubo
           hostPath:
             path: /var/vcap/sys/run/docker
+            type: DirectoryOrCreate
         - name: var-run-containerd
           hostPath:
             path: /var/vcap/sys/run/containerd
+            type: DirectoryOrCreate
         - name: var-containerd-config
           hostPath:
             path: /var/vcap/jobs/containerd/config
+            type: DirectoryOrCreate
         {{- end }}
         - name: sys
           hostPath:
@@ -193,6 +195,7 @@ spec:
         - name: var-data
           hostPath:
             path: /var/data
+            type: DirectoryOrCreate
         - name: machine-id
           hostPath:
             path: /etc/machine-id
