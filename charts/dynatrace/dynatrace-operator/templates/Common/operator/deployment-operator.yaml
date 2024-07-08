@@ -16,7 +16,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}
+  name: dynatrace-operator
   namespace: {{ .Release.Namespace }}
   labels:
       {{- include "dynatrace-operator.operatorLabels" . | nindent 4 }}
@@ -36,7 +36,7 @@ spec:
       annotations:
         dynatrace.com/inject: "false"
       {{- if (.Values.operator).apparmor}}
-        container.apparmor.security.beta.kubernetes.io/{{ .Release.Name }}: runtime/default
+        container.apparmor.security.beta.kubernetes.io/operator: runtime/default
       {{- end }}
       {{- if .Values.operator.annotations }}
         {{- toYaml .Values.operator.annotations | nindent 8 }}
@@ -49,7 +49,7 @@ spec:
         {{- end }}
     spec:
       containers:
-        - name: {{ .Release.Name }}
+        - name: operator
           args:
             - operator
           # Replace this with the built image name
@@ -85,27 +85,11 @@ spec:
           {{- include "dynatrace-operator.startupProbe" . | nindent 10 }}
           securityContext:
           {{- toYaml .Values.operator.securityContext | nindent 12 }}
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  {{- if ne (include "dynatrace-operator.platform" .) "gke-autopilot" }}
-                  - key: kubernetes.io/arch
-                    operator: In
-                    values:
-                      - amd64
-                      - arm64
-                      - ppc64le
-                  {{- end }}
-                  - key: kubernetes.io/os
-                    operator: In
-                    values:
-                      - linux
+      {{- include "dynatrace-operator.nodeAffinity" . | nindent 6 }}
       volumes:
         - emptyDir: { }
           name: tmp-cert-dir
-      serviceAccountName: {{ .Release.Name }}
+      serviceAccountName: dynatrace-operator
       securityContext:
         {{- toYaml .Values.operator.podSecurityContext | nindent 8 }}
       {{- if .Values.customPullSecret }}
@@ -119,13 +103,5 @@ spec:
         {{- if .Values.operator.tolerations }}
         {{- toYaml .Values.operator.tolerations | nindent 8 }}
         {{- end }}
-        - key: kubernetes.io/arch
-          value: arm64
-          effect: NoSchedule
-        - key: kubernetes.io/arch
-          value: amd64
-          effect: NoSchedule
-        - key: kubernetes.io/arch
-          value: ppc64le
-          effect: NoSchedule
-{{ end }}
+        {{- include "dynatrace-operator.defaultTolerations" . | nindent 8 }}
+  {{ end }}

@@ -7,12 +7,22 @@ New Relic offers a [Fluent Bit](https://fluentbit.io/) output [plugin](https://g
 This document explains how to install it in your cluster using our [Helm](https://helm.sh/) chart.
 
 
-## Install / Uninstall instructions
+## Install / Upgrade / Uninstall instructions
 Despite the `newrelic-logging` chart being able to work standalone, we recommend installing it as part of the [`nri-bundle`](https://github.com/newrelic/helm-charts/tree/master/charts/nri-bundle) chart. The best way of doing so is through the guided installation process documented [here](https://docs.newrelic.com//docs/kubernetes-pixie/kubernetes-integration/installation/kubernetes-integration-install-configure/). This guided install can generate the Helm 3 commands required to install it (select "Helm 3" in Step 3 from the previous documentation link). You can also opt to install it manually using Helm by following [these steps](https://docs.newrelic.com//docs/kubernetes-pixie/kubernetes-integration/installation/install-kubernetes-integration-using-helm/#install-k8-helm). To uninstall it, refer to the steps outlined in [this page](https://docs.newrelic.com/docs/kubernetes-pixie/kubernetes-integration/uninstall-kubernetes/).
 
+### Installing or updating the helm New Relic repository
+
+To install the repo you can run:
+```
+helm repo add newrelic https://helm-charts.newrelic.com
+```
+
+To update the repo you can run:
+```
+helm repo update newrelic
+```
 
 ## Configuration
-
 
 ### How to configure the chart
 The `newrelic-logging` chart can be installed either alone or as part of the [`nri-bundle`](https://github.com/newrelic/helm-charts/tree/master/charts/nri-bundle) chart (recommended). The chart default settings should be suitable for most users. Nevertheless, you may be interested in overriding the defaults, either by passing them through a `values-newrelic.yaml` file or via the command line when installing the chart. Depending on how you installed it, you'll need to specify the `newrelic-logging`-specific configuration values using the chart name (`newrelic-logging`) as a prefix. In the table below, you can find a quick reference of how to configure the chart in these scenarios. The example depicts how you'd specify the mandatory `licenseKey` and `cluster` settings and how you'd override the `fluentBit.retryLimit` setting to `10`.
@@ -39,7 +49,7 @@ fluentBit:
 ```
 
 ```
-# Installation command
+# Install / upgrade command
 
 helm upgrade --install newrelic-logging newrelic/newrelic-logging \
 --namespace newrelic \
@@ -50,7 +60,7 @@ helm upgrade --install newrelic-logging newrelic/newrelic-logging \
         <td>
 
 ```
-# Installation/configuration command
+# Install / upgrade command
 
 helm upgrade --install newrelic-logging newrelic/newrelic-logging \
 --namespace=newrelic \
@@ -79,7 +89,7 @@ newrelic-logging:
 ```
 
 ```
-# Installation command
+# Install / upgrade command
 
 helm upgrade --install newrelic-bundle newrelic/nri-bundle \
   --namespace newrelic \
@@ -90,7 +100,7 @@ helm upgrade --install newrelic-bundle newrelic/nri-bundle \
         <td>
 
 ```
-# Installation/configuration command
+# Install / upgrade command
 
 helm upgrade --install newrelic-bundle newrelic/nri-bundle \
 --namespace=newrelic \
@@ -107,7 +117,7 @@ helm upgrade --install newrelic-bundle newrelic/nri-bundle \
 See [values.yaml](values.yaml) for the default values
 
 | Parameter                                                    | Description                                                                                                                                                                                                                                                                                                                                                                          | Default                                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|
 | `global.cluster` - `cluster`                                 | The cluster name for the Kubernetes cluster.                                                                                                                                                                                                                                                                                                                                         |                                                                                 |
 | `global.licenseKey` - `licenseKey`                           | The [license key](https://docs.newrelic.com/docs/accounts/install-new-relic/account-setup/license-key) for your New Relic Account. This will be the preferred configuration option if both `licenseKey` and `customSecret*` values are specified.                                                                                                                                    |                                                                                 |
 | `global.customSecretName` - `customSecretName`               | Name of the Secret object where the license key is stored                                                                                                                                                                                                                                                                                                                            |                                                                                 |
@@ -165,6 +175,7 @@ See [values.yaml](values.yaml) for the default values
 | `fluentBit.config.extraOutputs`                              | Contains extra fluent-bit.conf Outputs config                                                                                                                                                                                                                                                                                                                                        |                                                                                 |
 | `fluentBit.config.parsers`                                   | Contains parsers.conf Parsers config                                                                                                                                                                                                                                                                                                                                                 |                                                                                 |
 | `fluentBit.retryLimit`                                       | Amount of times to retry sending a given batch of logs to New Relic. This prevents data loss if there is a temporary network disruption, if a request to the Logs API is lost or when receiving a recoverable HTTP response. Set it to "False" for unlimited retries.                                                                                                                | 5                                                                               |
+| `fluentBit.sendMetrics`                                      | Enable the collection of Fluent Bit internal metrics in Prometheus format as well as newrelic-fluent-bit-output internal plugin metrics. See [this documentation page](https://docs.newrelic.com/docs/logs/forward-logs/kubernetes-plugin-log-forwarding/#troubleshoot-installation) for more details.                                                                               | `false`                                                                         |
 | `dnsConfig`                                                  | [DNS configuration](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config) that will be added to the pods. Can be configured also with `global.dnsConfig`.                                                                                                                                                                                         | `{}`                                                                            |
 | `fluentBit.criEnabled`                                       | We assume that `kubelet`directly communicates with the container engine using the [CRI](https://kubernetes.io/docs/concepts/overview/components/#container-runtime) specification. Set this to `false` if your K8s installation uses [dockershim](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/) instead, in order to get the logs properly parsed. | `true`                                                                          |
 
